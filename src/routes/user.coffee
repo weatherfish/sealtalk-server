@@ -449,7 +449,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
       res.send new APIResult 200
   .catch next
 
-# 加入黑名单
+# 将好友加入黑名单
 router.post '/add_to_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
@@ -474,7 +474,7 @@ router.post '/add_to_blacklist', (req, res, next) ->
           res.send new APIResult 200
       .catch next
 
-# 从黑名单移除
+# 将好友从黑名单中移除
 router.post '/remove_from_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
@@ -534,7 +534,7 @@ router.get '/get_image_token', (req, res, next) ->
 
   res.send new APIResult 200, { target: 'qiniu', token: token }
 
-# 获取短信图验
+# 获取短信图形验证码
 router.get '/get_sms_img_code', (req, res, next) ->
   rongCloud.sms.getImgCode Config.RONGCLOUD_APP_KEY, (err, resultText) ->
     if err
@@ -547,7 +547,7 @@ router.get '/get_sms_img_code', (req, res, next) ->
 
   res.send new APIResult 200, { url: result.url, verifyId: result.verifyId }
 
-# 获取黑名单列表
+# 获取当前用户黑名单列表
 router.get '/blacklist', (req, res, next) ->
   currentUserId = req.app.locals.currentUserId
   timestamp = Date.now()
@@ -643,7 +643,9 @@ router.get '/groups', (req, res, next) ->
 router.get '/sync/:version', (req, res, next) ->
   version = req.params.version
 
-  user = blacklist = friends = groups = groupMembers = null
+  if not validator.isInt version
+    return res.status(400).send 'Version parameter is not integer.'
+
   maxVersions = []
 
   currentUserId = req.app.locals.currentUserId
@@ -688,7 +690,7 @@ router.get '/sync/:version', (req, res, next) ->
             'timestamp'
           ]
 
-      # 获取变化的加入的群组信息
+      # 获取变化的当前用户加入的群组信息
       if dataVersion.groupVersion > version
         groups = yield GroupMember.findAll
           where:
@@ -710,7 +712,7 @@ router.get '/sync/:version', (req, res, next) ->
             ]
           ]
 
-      # 获取变化的加入的群组成员信息
+      # 获取变化的当前用户加入的群组成员信息
       if dataVersion.groupVersion > version
         groupMembers = yield GroupMember.findAll
           where:
