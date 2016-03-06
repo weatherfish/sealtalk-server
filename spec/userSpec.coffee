@@ -30,7 +30,7 @@ describe '用户接口测试', ->
 
   describe '发送验证码', ->
 
-    xit '成功', (done) ->
+    it '成功', (done) ->
       this.testPOSTAPI '/user/send_code',
         region: '86'
         phone: _global.phoneNumber1

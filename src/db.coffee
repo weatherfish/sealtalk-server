@@ -1,8 +1,8 @@
 Sequelize = require 'sequelize'
 co        = require 'co'
 
-Config    = require './conf'
 Utility   = require('./util/util').Utility
+Config    = require Utility.getConfigPath('.')
 HTTPError = require('./util/util').HTTPError
 
 GROUP_CREATOR = 0
@@ -31,6 +31,23 @@ userClassMethods =
       attributes: [
         'nickname'
       ]
+  checkPhoneAvailable: (region, phone) ->
+    User.count
+      where:
+        region: region
+        phone: phone
+    .then (count) ->
+      Promise.resolve count is 0
+    .catch (err) ->
+      Promise.reject err
+  # checkUsernameAvailable: (username) ->
+  #   User.count
+  #     where:
+  #       username: username
+  #   .then (count) ->
+  #     Promise.resolve count is 0
+  #   .catch (err) ->
+  #     Promise.reject err
 
 friendshipClassMethods =
   getInfo: (userId, friendId) ->
@@ -276,7 +293,7 @@ GroupSync = sequelize.define 'group_syncs',
   groupId:    { type: Sequelize.INTEGER.UNSIGNED, primaryKey: true }
   syncInfo:   { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已同步群组信息到 IM 服务器' }
   syncMember: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已同步群组成员到 IM 服务器' }
-  dismiss:    { type: Sequelize.BOOLEAN, allowNull: true, comment: '是否已在 IM 服务端成功解散群组' }
+  dismiss:    { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已在 IM 服务端成功解散群组' }
   ,
     timestamps: false
 

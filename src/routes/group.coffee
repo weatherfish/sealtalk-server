@@ -4,8 +4,8 @@ _         = require 'underscore'
 debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
-Config    = require '../conf'
 Utility   = require('../util/util').Utility
+Config    = require Utility.getConfigPath('..')
 APIResult = require('../util/util').APIResult
 HTTPError = require('../util/util').HTTPError
 
@@ -56,7 +56,7 @@ sendGroupNotification = (userId, groupId, operation, data) ->
       (err, resultText) ->
         # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
         if err
-          log 'Error: send group notification failed: %s', err
+          logError 'Error: send group notification failed: %s', err
           reject err
 
         resolve resultText
@@ -114,7 +114,7 @@ router.post '/create', (req, res, next) ->
         # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
         rongCloud.group.create encodedMemberIds, Utility.encodeId(group.id), name, (err, resultText) ->
           if err
-            log 'Error: create group failed on IM server, error: %s', err
+            logError 'Error: create group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
@@ -128,15 +128,15 @@ router.post '/create', (req, res, next) ->
                 targetGroupName: name
                 timestamp: timestamp
           else
-            log 'Error: create group failed on IM server, code: %s', result.code
+            logError 'Error: create group failed on IM server, code: %s', result.code
 
-            # TODO: 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-            # GroupSync.upsert
-            #   syncInfo: success
-            #   syncMember: success
-            # ,
-            #   where:
-            #     id: group.id
+            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+            GroupSync.upsert
+              syncInfo: success
+              syncMember: success
+            ,
+              where:
+                groupId: group.id
 
         # 无论调用融云接口成功与否，都返回创建群组成功
         res.send new APIResult 200, Utility.encodeResults id: group.id
@@ -185,35 +185,34 @@ router.post '/add', (req, res, next) ->
         # 调用融云接口加入群组，如果创建失败，后续用计划任务同步
         rongCloud.group.join encodedMemberIds, encodedGroupId, group.name, (err, resultText) ->
           if err
-            log 'Error: join group failed on IM server, error: %s', err
+            logError 'Error: join group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
 
-          if not success
-            log 'Error: join group failed on IM server, code: %s', result.code
+          if success
+            User.getUserNames memberIds
+            .then (users) ->
+              nicknames = users.map (user) ->
+                user.nickname
 
-          # TODO: 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-          # GroupSync.upsert
-          #   syncInfo: success
-          #   syncMember: success
-          # ,
-          #   where:
-          #     id: group.id
+              sendGroupNotification currentUserId,
+                groupId,
+                GROUP_OPERATION_ADD,
+                data:
+                  operatorNickname: req.app.locals.currentUserNickname
+                  targetUserIds: encodedMemberIds
+                  targetUserDisplayNames: nicknames
+                  timestamp: timestamp
+          else
+            logError 'Error: join group failed on IM server, code: %s', result.code
 
-          User.getUserNames memberIds
-          .then (users) ->
-            nicknames = users.map (user) ->
-              user.nickname
-
-            sendGroupNotification currentUserId,
-              groupId,
-              GROUP_OPERATION_ADD,
-              data:
-                operatorNickname: req.app.locals.currentUserNickname
-                targetUserIds: encodedMemberIds
-                targetUserDisplayNames: nicknames
-                timestamp: timestamp
+            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+            GroupSync.upsert
+              syncMember: true
+            ,
+              where:
+                groupId: group.id
 
         res.send new APIResult 200
   .catch next
@@ -259,29 +258,28 @@ router.post '/join', (req, res, next) ->
         # 调用融云接口加入群组，如果创建失败，后续用计划任务同步
         rongCloud.group.join encodedIds, encodedGroupId, group.name, (err, resultText) ->
           if err
-            log 'Error: join group failed on IM server, error: %s', err
+            logError 'Error: join group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
 
-          if not success
-            log 'Error: join group failed on IM server, code: %s', result.code
+          if success
+            sendGroupNotification currentUserId,
+              groupId,
+              GROUP_OPERATION_ADD,
+              data:
+                operatorNickname: req.app.locals.currentUserNickname
+                targetUserIds: encodedIds
+                timestamp: timestamp
+          else
+            logError 'Error: join group failed on IM server, code: %s', result.code
 
-          # TODO: 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-          # GroupSync.upsert
-          #   syncInfo: success
-          #   syncMember: success
-          # ,
-          #   where:
-          #     id: group.id
-
-          sendGroupNotification currentUserId,
-            groupId,
-            GROUP_OPERATION_ADD,
-            data:
-              operatorNickname: req.app.locals.currentUserNickname
-              targetUserIds: ids
-              timestamp: timestamp
+            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+            GroupSync.upsert
+              syncMember: true
+            ,
+              where:
+                groupId: group.id
 
         res.send new APIResult 200
   .catch next
@@ -374,24 +372,23 @@ router.post '/kick', (req, res, next) ->
                 targetUserDisplayNames: nicknames
                 timestamp: timestamp
             .then ->
-              # 调用融云接口加入群组，如果创建失败，后续用计划任务同步
+              # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
               rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
                 if err
-                  log 'Error: quit group failed on IM server, error: %s', err
+                  logError 'Error: quit group failed on IM server, error: %s', err
 
                 result = JSON.parse resultText
                 success = result.code is 200
 
                 if not success
-                  log 'Error: quit group failed on IM server, code: %s', result.code
+                  logError 'Error: quit group failed on IM server, code: %s', result.code
 
-                # TODO: 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-                # GroupSync.upsert
-                #   syncInfo: success
-                #   syncMember: success
-                # ,
-                #   where:
-                #     id: group.id
+                  # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+                  GroupSync.upsert
+                    syncMember: true
+                  ,
+                    where:
+                      groupId: group.id
 
             res.send new APIResult 200
   .catch next
@@ -402,6 +399,7 @@ router.post '/quit', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
 
   currentUserId = req.app.locals.currentUserId
+  currentUserNickname = req.app.locals.currentUserNickname
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -423,13 +421,11 @@ router.post '/quit', (req, res, next) ->
       if not isInGroup
         return res.status(403).send 'Current user is not group member.'
 
-      shouldSendNotification = false
       resultMessage = null
 
       sequelize.transaction (t) ->
         # 如果不是创建者，正常退出群组
         if group.creatorId isnt currentUserId
-          shouldSendNotification = true
           resultMessage = 'Quit.'
 
           Promise.all [
@@ -462,7 +458,6 @@ router.post '/quit', (req, res, next) ->
             else
               return false
 
-          shouldSendNotification = true
           resultMessage = 'Quit and group owner transfered.'
 
           Promise.all [
@@ -496,7 +491,6 @@ router.post '/quit', (req, res, next) ->
           ]
         # 群组里没有人了，解散群组
         else
-          shouldSendNotification = false
           resultMessage = 'Quit and group dismissed.'
 
           Promise.all [
@@ -525,42 +519,34 @@ router.post '/quit', (req, res, next) ->
         # 更新版本号（时间戳）
         DataVersion.updateGroupMemberVersion groupId, timestamp
         .then ->
-          co ->
-            encodedIds = [Utility.encodeId(currentUserId)]
-
-            if shouldSendNotification
-              yield sendGroupNotification currentUserId,
-                groupId,
-                GROUP_OPERATION_QUIT,
-                data:
-                  operatorNickname: req.app.locals.currentUserNickname
-                  targetUserIds: encodedIds
-                  timestamp: timestamp
-
-            # 调用融云接口退出群组，如果退出失败，后续用计划任务同步
-            rongCloud.group.quit encodedIds, encodedGroupId, (err, resultText) ->
+          sendGroupNotification currentUserId,
+            groupId,
+            GROUP_OPERATION_QUIT,
+            data:
+              operatorNickname: currentUserNickname
+              targetUserIds: [Utility.encodeId(currentUserId)]
+              targetUserDisplayNames: [currentUserNickname]
+              timestamp: timestamp
+          .then ->
+            # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
+            rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
               if err
-                resultMessage = "Error: quit group failed on IM server, error: #{err}"
-                log resultMessage
-                return res.send new APIResult 400, null, resultMessage
+                logError 'Error: quit group failed on IM server, error: %s', err
 
               result = JSON.parse resultText
               success = result.code is 200
 
               if not success
-                resultMessage = "Error: quit group failed on IM server, code: #{result.code}"
-                log resultMessage
-                return res.send new APIResult 400, null, resultMessage
+                logError 'Error: quit group failed on IM server, code: %s', result.code
 
                 # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-                # GroupSync.upsert
-                #   syncInfo: success
-                #   syncMember: success
-                # ,
-                #   where:
-                #     id: group.id
+                GroupSync.upsert
+                  syncMember: true
+                ,
+                  where:
+                    groupId: group.id
 
-              res.send new APIResult 200, null, resultMessage
+          res.send new APIResult 200, null, resultMessage
   .catch next
 
 # 创建者解散群组
@@ -603,38 +589,32 @@ router.post '/dismiss', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateGroupMemberVersion groupId, timestamp
     .then ->
-      co ->
-        try
-          yield sendGroupNotification currentUserId,
-            groupId,
-            GROUP_OPERATION_DISMISS,
-            data:
-              operatorNickname: req.app.locals.currentUserNickname
-              timestamp: timestamp
-        catch err
-          log "Error: send dismiss group notification failed on IM server, error: #{err}"
-
+      sendGroupNotification currentUserId,
+        groupId,
+        GROUP_OPERATION_DISMISS,
+        data:
+          operatorNickname: req.app.locals.currentUserNickname
+          timestamp: timestamp
+      .then ->
         # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
         rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
           if err
-            resultMessage = "Error: dismiss group failed on IM server, error: #{err}"
-            log resultMessage
-            return res.send new APIResult 400, null, resultMessage
+            logError 'Error: dismiss group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
 
           if not success
-            resultMessage = "Error: dismiss group failed on IM server, code: #{result.code}"
-            log resultMessage
-            return res.send new APIResult 400, null, resultMessage
+            logError 'Error: dismiss group failed on IM server, code: %s', result.code
 
             # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-            # GroupSync.upsert dismiss: false,
-            #   where:
-            #     groupId: groupId
+            GroupSync.upsert
+              dismiss: true
+            ,
+              where:
+                groupId: groupId
 
-          res.send new APIResult 200
+      res.send new APIResult 200
   .catch next
 
 # 创建者为群组重命名
@@ -668,18 +648,20 @@ router.post '/rename', (req, res, next) ->
       # 调用融云服务器刷新群组信息
       rongCloud.group.refresh encodedGroupId, name, (err, resultText) ->
         if err
-          log 'Error: refresh group info failed on IM server, error: %s', err
+          logError 'Error: refresh group info failed on IM server, error: %s', err
 
         result = JSON.parse resultText
         success = result.code is 200
 
         if not success
-          log 'Error: refresh group info failed on IM server, code: %s', result.code
+          logError 'Error: refresh group info failed on IM server, code: %s', result.code
 
         # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-        # GroupSync.upsert syncInfo: success,
-        #   where:
-        #     groupId: groupId
+        GroupSync.upsert
+          syncInfo: true
+        ,
+          where:
+            groupId: groupId
 
       sendGroupNotification currentUserId,
         groupId,

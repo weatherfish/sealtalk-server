@@ -5,8 +5,8 @@ bodyParser        = require 'body-parser'
 compression       = require 'compression'
 cors              = require 'cors'
 
-Config            = require './conf'
 Utility           = require('./util/util').Utility
+Config            = require Utility.getConfigPath('.')
 HTTPError         = require('./util/util').HTTPError
 userRouter        = require './routes/user'       # 引用用户相关接口
 friendshipRouter  = require './routes/friendship' # 引用好友相关接口
@@ -15,19 +15,15 @@ groupRouter       = require './routes/group'      # 引用群组相关接口
 log = debug 'app:log'
 logError = debug 'app:error'
 logPath = debug 'app:path'
-logFile = debug 'app:file'
 
 app = express()
 
 app.use compression()                 # 使用内容压缩
-app.use express.static 'build/static' if app.get('env') is 'development' # 使用静态文件解析器
 app.use cookieParser()                # 使用 Cookie 解析器
 app.use bodyParser.json()             # 使用 Body 解析器
 app.use cors                          # 使用 CORS，支持跨域
   origin: Config.CORS_HOSTS
   credentials: true
-
-# TODO: 在生产环境，屏蔽所有服务端错误信息
 
 # 前置身份验证
 app.all '*', (req, res, next) ->
@@ -77,12 +73,9 @@ errorHandler = (err, req, res, next) ->
   if err instanceof HTTPError
     return res.status(err.statusCode).send err.message
 
-  if app.get('env') is 'development'
-    logError err.stack
-  else
-    logFile err.stack
+  logError err
 
-  res.status(500).send err.message
+  res.status(500).send err.message || 'Unknown error.'
 
 app.options '*', cors()                 # 跨域支持
 app.use parameterPreprocessor           # 参数判断和转换

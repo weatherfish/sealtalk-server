@@ -5,6 +5,8 @@ module.exports =
   NICKNAME_COOKIE_NAME: 'rong_im_nickname'
   # Cookie 加密密钥，请在部署时重新生成
   AUTH_COOKIE_KEY: '<-- 此处设置一个加密 Cookie 密钥 -->'
+  # Cookie 加密密钥，请在部署时重新生成
+  AUTH_COOKIE_MAX_AGE: '<-- 此处设置一个 Cookie 过期时间，注意改为数字类型 -->'
   # 融云颁发的 App Key，请访问融云开发者后台：https://developer.rongcloud.cn
   RONGCLOUD_APP_KEY: '<-- 此处填写融云颁发的 App Key -->'
   # 融云颁发的 App Secret，请访问融云开发者后台：https://developer.rongcloud.cn

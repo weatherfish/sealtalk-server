@@ -3,6 +3,8 @@ components
 coverage
 build
 dist
+src/conf.dev.coffee
+test.coffee
 .DS_Store
 **/*.log
 **/*.bak

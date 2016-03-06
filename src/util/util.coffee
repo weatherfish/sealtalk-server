@@ -1,5 +1,6 @@
 crypto  = require 'crypto'
-Config  = require '../conf'
+process = require 'process'
+Config  = require if process.env.NODE_ENV is 'development' then '../conf.dev' else '../conf'
 N3D     = require './n3d'
 
 class Utility
@@ -25,6 +26,7 @@ class Utility
     res.cookie Config.AUTH_COOKIE_NAME, value,
       #secure: true
       httpOnly: true
+      maxAge: Config.AUTH_COOKIE_MAX_AGE
 
   @setNicknameCookie: (res, nickname) ->
     value = @encryptText nickname, Config.AUTH_COOKIE_KEY
@@ -32,6 +34,7 @@ class Utility
     res.cookie Config.NICKNAME_COOKIE_NAME, value,
       #secure: true
       httpOnly: true
+      maxAge: Config.AUTH_COOKIE_MAX_AGE
 
   @encryptText: (text, password) ->
     salt = @random 1000, 9999
@@ -127,6 +130,10 @@ class Utility
       @n3d.encrypt num
     catch
       null
+
+  # 根据开发环境获取配置文件地址
+  @getConfigPath: (path) ->
+    if process.env.NODE_ENV is 'development' then path + '/conf.dev' else path + '/conf'
 
 # 定义一个通用 API 返回结果模型
 class APIResult

@@ -6,8 +6,8 @@ debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 qiniu     = require 'qiniu'
 
-Config    = require '../conf'
 Utility   = require('../util/util').Utility
+Config    = require Utility.getConfigPath('..')
 APIResult = require('../util/util').APIResult
 
 # 引用数据库对象和模型
@@ -35,25 +35,6 @@ validator = sequelize.Validator
 # 国际电话区号和国家代码对应关系
 regionMap =
   '86' : 'zh-CN'
-
-checkPhoneAvailable = (region, phone) ->
-  User.count
-    where:
-      region: region
-      phone: phone
-  .then (count) ->
-    Promise.resolve count is 0
-  .catch (error) ->
-    Promise.reject error
-
-# checkUsernameAvailable = (username) ->
-#   User.count
-#     where:
-#       username: username
-#   .then (count) ->
-#     Promise.resolve count is 0
-#   .catch (error) ->
-#     Promise.reject error
 
 getToken = (userId, nickname, portraitUri) ->
   new Promise (resolve, reject) ->
@@ -87,7 +68,7 @@ router.post '/send_code', (req, res, next) ->
   # verify_code = req.body.verify_code
 
   # 如果不是合法的手机号，直接返回，省去查询数据库的步骤
-  if not validator.isMobilePhone phone, regionMap[region]
+  if not validator.isMobilePhone phone.toString(), regionMap[region]
     return res.status(400).send 'Invalid region and phone number.'
 
   VerificationCode.getByPhone region, phone
@@ -116,7 +97,7 @@ router.post '/send_code', (req, res, next) ->
         return res.send new APIResult 200
     else
       # 需要在融云开发者后台申请短信验证码签名，然后选择短信模板 Id
-      rongCloud.sms.sendCode region, phone, '9kRzbeLeQx89RMVRd76lpR', (err, resultText) ->
+      rongCloud.sms.sendCode region, phone, Config.RONGCLOUD_SMS_REGISTER_TEMPLATE_ID, (err, resultText) ->
         if err
           logError err.response.text
           return next err.response.text
@@ -172,7 +153,7 @@ router.post '/verify_code', (req, res, next) ->
 # router.post '/check_username_available', (req, res, next) ->
 #   username = req.body.username
 #
-#   checkUsernameAvailable username
+#   User.checkUsernameAvailable username
 #   .then (result) ->
 #     if result
 #       res.send new APIResult 200, true
@@ -189,7 +170,7 @@ router.post '/check_phone_available', (req, res, next) ->
   if not validator.isMobilePhone phone, regionMap[region]
     return res.status(400).send 'Invalid region and phone number.'
 
-  checkPhoneAvailable region, phone
+  User.checkPhoneAvailable region, phone
   .then (result) ->
     if result
       res.send new APIResult 200, true
@@ -218,10 +199,10 @@ router.post '/register', (req, res, next) ->
     if not verification
       return res.status(404).send 'Unknown verification_token.'
 
-    # checkUsernameAvailable username
+    # User.checkUsernameAvailable username
     # .then (result) ->
     #   if result
-    checkPhoneAvailable verification.region, verification.phone
+    User.checkPhoneAvailable verification.region, verification.phone
     .then (result) ->
       if result
         salt = Utility.random 1000, 9999
@@ -309,7 +290,7 @@ router.post '/login', (req, res, next) ->
 
         rongCloud.group.sync Utility.encodeId(user.id), groupIdNamePairs, (err, resultText) ->
           if err
-            log "Error: sync user's group list failed: %s", err
+            logError 'Error sync user\'s group list failed: %s', err
       .catch (error) ->
         # Do nothing if error.
         # TODO: log error
@@ -570,7 +551,7 @@ router.get '/blacklist', (req, res, next) ->
     rongCloud.user.blacklist.query Utility.encodeId(currentUserId), (err, resultText) ->
       if err
         # 如果失败直接忽略
-        log 'Error: request server blacklist failed: %s', err
+        logError 'Error: request server blacklist failed: %s', err
       else
         result = JSON.parse(resultText)
 
@@ -646,6 +627,7 @@ router.get '/sync/:version', (req, res, next) ->
   if not validator.isInt version
     return res.status(400).send 'Version parameter is not integer.'
 
+  user = blacklist = friends = groups = groupMembers = null
   maxVersions = []
 
   currentUserId = req.app.locals.currentUserId
