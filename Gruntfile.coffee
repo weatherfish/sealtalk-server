@@ -31,6 +31,13 @@ module.exports = (grunt) ->
         ]
 
     copy:
+      json:
+        files: [
+          expand: true
+          cwd: 'src'
+          src: 'squirrel.json'
+          dest: 'build/src'
+        ]
       release:
         files: [
           expand: true
@@ -50,6 +57,7 @@ module.exports = (grunt) ->
         tasks: [
           'clean'
           'coffee'
+          'copy:json'
         ]
 
     nodemon:
@@ -69,11 +77,13 @@ module.exports = (grunt) ->
   grunt.registerTask 'build', [
     'clean'
     'coffee'
+    'copy:json'
     'watch'
   ]
 
   grunt.registerTask 'release', [
     'clean'
     'coffee'
-    'copy'
+    'copy:json'
+    'copy:release'
   ]

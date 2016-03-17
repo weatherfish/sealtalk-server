@@ -99,8 +99,7 @@ router.post '/send_code', (req, res, next) ->
       # 需要在融云开发者后台申请短信验证码签名，然后选择短信模板 Id
       rongCloud.sms.sendCode region, phone, Config.RONGCLOUD_SMS_REGISTER_TEMPLATE_ID, (err, resultText) ->
         if err
-          logError err.response.text
-          return next err.response.text
+          return next err
 
         result = JSON.parse resultText
 
@@ -135,7 +134,6 @@ router.post '/verify_code', (req, res, next) ->
     else
       rongCloud.sms.verifyCode verification.sessionId, code, (err, resultText) ->
         if err
-          logError resultText
           return next err
 
         result = JSON.parse resultText
@@ -292,8 +290,6 @@ router.post '/login', (req, res, next) ->
           if err
             logError 'Error sync user\'s group list failed: %s', err
       .catch (error) ->
-        # Do nothing if error.
-        # TODO: log error
         logError 'Sync groups error: ', error
 
       if user.rongCloudToken is ''

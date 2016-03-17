@@ -45,6 +45,7 @@
     "grunt-nodemon": "^0.4.0",
     "istanbul": "^0.4.0",
     "jasmine": "^2.3.2",
+    "jsonfile": "^2.2.3",
     "supertest": "^1.1.0"
   }
 }

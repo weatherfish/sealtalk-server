@@ -762,3 +762,17 @@ describe '用户接口测试', ->
         , 403
         , null
         , done
+
+  describe '检查最新版本', ->
+
+    it '升级', (done) ->
+      _global.testGETAPI "/update/latest?version=1.0.1"
+      , 200
+      , url: 'STRING'
+      , done
+
+    it '不升级', (done) ->
+      _global.testGETAPI "/update/latest?version=1.0.2"
+      , 204
+      , null
+      , done

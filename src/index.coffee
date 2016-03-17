@@ -4,6 +4,8 @@ cookieParser      = require 'cookie-parser'
 bodyParser        = require 'body-parser'
 compression       = require 'compression'
 cors              = require 'cors'
+jsonfile          = require 'jsonfile'
+path              = require 'path'
 
 Utility           = require('./util/util').Utility
 Config            = require Utility.getConfigPath('.')
@@ -27,10 +29,10 @@ app.use cors                          # 使用 CORS，支持跨域
 
 # 前置身份验证
 app.all '*', (req, res, next) ->
-  logPath 'Request: %s %s %j', (req.method + ' ').substr(0, 4), req.originalUrl, req.body
+  logPath 'Request: %s %s %j', (req.method + ' ').substr(0, 4), req.originalUrl, JSON.stringify(req.body).replace(/"password":"(.+?)"/, '**********')
 
   # 不需要验证身份的路径
-  for path in [
+  for reqPath in [
     '/user/login'
     '/user/register'
     '/user/reset_password'
@@ -39,9 +41,10 @@ app.all '*', (req, res, next) ->
     '/user/get_sms_img_code'
     '/user/check_username_available'
     '/user/check_phone_available'
+    '/update/latest'
     /\/helper\/.*/
   ]
-    if (typeof path is 'string' and req.path is path) or (typeof path is 'object' and path.test req.path)
+    if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
       return next() # 跳过验证
 
   if app.get('env') is 'development' and req.query.userId
@@ -82,6 +85,20 @@ app.use parameterPreprocessor           # 参数判断和转换
 app.use '/user', userRouter             # 加载用户相关接口
 app.use '/friendship', friendshipRouter # 加载好友相关接口
 app.use '/group', groupRouter           # 加载群组相关接口
+
+app.get '/update/latest', (req, res, next) ->
+  clientVersion = req.query.version
+
+  try
+    squirrelConfig = jsonfile.readFileSync path.join __dirname, 'squirrel.json'
+
+    if clientVersion is squirrelConfig.version
+      res.status(204).end()
+    else
+      res.send
+        url: squirrelConfig.url
+  catch err
+    next err
 
 # IMPORTANT !!!
 # 开发测试环境支持，上线时务必将 NODE_ENV 设置为 production 以屏蔽相关接口
