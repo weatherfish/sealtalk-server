@@ -29,7 +29,7 @@ app.use cors                          # 使用 CORS，支持跨域
 
 # 前置身份验证
 app.all '*', (req, res, next) ->
-  logPath 'Request: %s %s %j', (req.method + ' ').substr(0, 4), req.originalUrl, JSON.stringify(req.body).replace(/"password":"(.+?)"/, '**********')
+  logPath 'Request: %s %s %s', (req.method + ' ').substr(0, 4), req.originalUrl, JSON.stringify(req.body).replace(/"password":".*?"/, '"password":"**********"')
 
   # 不需要验证身份的路径
   for reqPath in [
