@@ -291,9 +291,9 @@ GroupMember.belongsTo Group, { foreignKey: 'groupId', constraints: false }
 # 群组同步任务模型
 GroupSync = sequelize.define 'group_syncs',
   groupId:    { type: Sequelize.INTEGER.UNSIGNED, primaryKey: true }
-  syncInfo:   { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已同步群组信息到 IM 服务器' }
-  syncMember: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已同步群组成员到 IM 服务器' }
-  dismiss:    { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否已在 IM 服务端成功解散群组' }
+  syncInfo:   { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否需要同步群组信息到 IM 服务器' }
+  syncMember: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否需要同步群组成员到 IM 服务器' }
+  dismiss:    { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false, comment: '是否需要在 IM 服务端成功解散群组' }
   ,
     timestamps: false
 
