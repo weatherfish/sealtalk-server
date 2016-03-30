@@ -9,6 +9,7 @@ path              = require 'path'
 
 Utility           = require('./util/util').Utility
 Config            = require Utility.getConfigPath('.')
+APIResult         = require('./util/util').APIResult
 HTTPError         = require('./util/util').HTTPError
 userRouter        = require './routes/user'       # 引用用户相关接口
 friendshipRouter  = require './routes/friendship' # 引用好友相关接口
@@ -97,6 +98,15 @@ app.get '/update/latest', (req, res, next) ->
     else
       res.send
         url: squirrelConfig.url
+  catch err
+    next err
+
+# 获取 Demo 演示所需要的群组和聊天室名单
+app.get '/demo_square', (req, res, next) ->
+  try
+    demoSquareData = jsonfile.readFileSync path.join __dirname, 'demo_square.json'
+
+    res.send new APIResult 200, Utility.encodeResults demoSquareData
   catch err
     next err
 

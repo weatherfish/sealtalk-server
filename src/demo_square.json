@@ -1,0 +1,26 @@
+[
+  {
+    "type": "group",
+    "id": 12
+  },
+  {
+    "type": "group",
+    "id": 13
+  },
+  {
+    "type": "group",
+    "id": 14
+  },
+  {
+    "type": "chatroom",
+    "id": 1
+  },
+  {
+    "type": "chatroom",
+    "id": 2
+  },
+  {
+    "type": "chatroom",
+    "id": 3
+  }
+]

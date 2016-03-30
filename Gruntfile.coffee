@@ -35,7 +35,7 @@ module.exports = (grunt) ->
         files: [
           expand: true
           cwd: 'src'
-          src: 'squirrel.json'
+          src: '*.json'
           dest: 'build/src'
         ]
       release:
@@ -51,6 +51,7 @@ module.exports = (grunt) ->
         spawn: false
       test:
         files: [
+          'src/**/*.json'
           'src/**/*.coffee'
           'spec/**/*.coffee'
         ]
