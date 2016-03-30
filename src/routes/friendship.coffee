@@ -44,7 +44,7 @@ sendContactNotification = (userId, nickname, friendId, operation, message, times
       sourceUserNickname: nickname
       version: timestamp
 
-  rongCloud.message.system.publish encodedUserId, encodedFriendId, 'RC:ContactNtf', contactNotificationMessage,
+  rongCloud.message.system.publish encodedUserId, [encodedFriendId], 'RC:ContactNtf', contactNotificationMessage,
     (err, resultText) ->
       # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
       if err
