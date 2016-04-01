@@ -205,22 +205,26 @@ grunt release
 
 | 接口地址 | 说明 |
 |---------|-----|
-| [/user/send_code](#/user/send_code) | 向手机发送验证码 |
-| [/user/verify_code](#/user/verify_code) | 验证验证码 |
-| [/user/check_phone_available](#/user/check_phone_available) | 检查手机号是否可以注册 |
-| [/user/register](#/user/register) | 注册新用户 |
-| [/user/login](#/user/login) | 用户登录 |
-| [/user/logout](#/user/logout) | 当前用户注销 |
-| [/user/reset_password](#/user/reset_password) | 通过手机验证码设置新密码 |
-| [/user/change_password](#/user/change_password) | 当前登录用户通过旧密码设置新密码 |
-
-
-
-
-
-
-
-
+| [/user/send_code](#post-usersend_code) | 向手机发送验证码 |
+| [/user/verify_code](#post-userverify_code) | 验证验证码 |
+| [/user/check_phone_available](#post-usercheck_phone_available) | 检查手机号是否可以注册 |
+| [/user/register](#post-userregister) | 注册新用户 |
+| [/user/login](#post-userlogin) | 用户登录 |
+| [/user/logout](#post-userlogout) | 当前用户注销 |
+| [/user/reset_password](#post-userreset_password) | 通过手机验证码设置新密码 |
+| [/user/change_password](#post-userchange_password) | 当前登录用户通过旧密码设置新密码 |
+| [/user/set_nickname](#post-userset_nickname) | 设置当前用户的昵称 |
+| [/user/set_portrait_uri](#post-userset_portrait_uri) | 设置当前用户头像地址 |
+| [/user/blacklist](#post-userblacklist) | 获取当前用户黑名单列表 |
+| [/user/add_to_blacklist](#post-useradd_to_blacklist) | 将好友加入黑名单 |
+| [/user/remove_from_blacklist](#post-userremove_from_blacklist) | 将好友从黑名单中移除 |
+| [/user/get_token](#post-userget_token) | 获取融云 Token |
+| [/user/get_image_token](#post-userget_image_token) | 获取云存储所用 Token |
+| [/user/get_sms_img_code](#post-userget_sms_img_code) | 获取短信图形验证码 |
+| [/user/groups](#post-usergroups) | 获取当前用户所属群组列表 |
+| [/sync/:version](#post-sync:version) | 同步用户的好友、黑名单、群组、群组成员数据 |
+| [/user/:id](#post-user:id) | 获取用户信息 |
+| [/find/:region/:phone](#post-find:region:phone) | 根据手机号查找用户信息 |
 
 ### 好友相关接口
 
