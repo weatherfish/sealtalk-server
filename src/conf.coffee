@@ -19,6 +19,10 @@ module.exports =
   QINIU_ACCESS_KEY: '<-- 此处填写七牛颁发的 Access Key -->'
   # 七牛颁发的 Secret Key，请访问七牛开发者后台：https://portal.qiniu.com
   QINIU_SECRET_KEY: '<-- 此处填写七牛颁发的 Secret Key -->'
+  # 七牛创建的空间名称，请访问七牛开发者后台：https://portal.qiniu.com
+  QINIU_BUCKET_NAME: '<-- 此处填写七牛创建的空间名称 -->'
+  # 七牛创建的空间域名，请访问七牛开发者后台：https://portal.qiniu.com
+  QINIU_BUCKET_DOMAIN: '<-- 此处填写七牛创建的空间域名 -->'
   # N3D 密钥，用来加密所有的 Id 数字，不要小于 5 位
   N3D_KEY: '<-- 此处设置一个加密 Id 的密钥 -->'
   # 跨域支持所需配置的主机信息（请求者），包括请求服务器的域名和端口号

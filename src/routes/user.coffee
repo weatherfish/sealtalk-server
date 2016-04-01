@@ -36,9 +36,9 @@ validator = sequelize.Validator
 regionMap =
   '86' : 'zh-CN'
 
+# 获取新 Token 并更新到数据库
 getToken = (userId, nickname, portraitUri) ->
   new Promise (resolve, reject) ->
-    # 强制获取新 Token 或者数据库中没有缓存 Token 则调用 Server API SDK 获取 Token
     rongCloud.user.getToken Utility.encodeId(userId), nickname, portraitUri, (err, resultText) ->
       if err
         return reject err
@@ -496,9 +496,13 @@ router.get '/get_token', (req, res, next) ->
       'rongCloudToken'
     ]
   .then (user) ->
-    getToken user.id, user.nickname, user.portraitUri
-    .then (token) ->
-      res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: token }, 'userId'
+    if user.rongCloudToken is not ''
+      res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: user.rongCloudToken }, 'userId'
+    else
+      # 数据库中没有缓存 Token 则调用 Server API SDK 获取 Token
+      getToken user.id, user.nickname, user.portraitUri
+      .then (token) ->
+        res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: token }, 'userId'
   .catch next
 
 # 获取云存储所用 Token
@@ -506,10 +510,10 @@ router.get '/get_image_token', (req, res, next) ->
   qiniu.conf.ACCESS_KEY = Config.QINIU_ACCESS_KEY
   qiniu.conf.SECRET_KEY = Config.QINIU_SECRET_KEY
 
-  putPolicy = new qiniu.rs.PutPolicy 'sealtalk-image'
+  putPolicy = new qiniu.rs.PutPolicy Config.QINIU_BUCKET_NAME
   token = putPolicy.token()
 
-  res.send new APIResult 200, { target: 'qiniu', token: token }
+  res.send new APIResult 200, { target: 'qiniu', domain: Config.QINIU_BUCKET_DOMAIN, token: token }
 
 # 获取短信图形验证码
 router.get '/get_sms_img_code', (req, res, next) ->
