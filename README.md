@@ -799,12 +799,14 @@ grunt release
   "code": 200,
   "result": {
     "target": "qiniu",
+    "domain": "a.qiniu.com",
     "token": "fsd89feuio3iweoifds"
   }
 }
 ```
 
 * target: 云存储类型
+* domain: 云存储图片地址域名
 * token: 云存储 Token
 
 返回码说明：
