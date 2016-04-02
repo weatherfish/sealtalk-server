@@ -3,8 +3,8 @@ moment    = require 'moment'
 debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
+Config    = require '../conf'
 Utility   = require('../util/util').Utility
-Config    = require Utility.getConfigPath('..')
 APIResult = require('../util/util').APIResult
 
 # 引用数据库对象和模型

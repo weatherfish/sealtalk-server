@@ -1,8 +1,8 @@
 Sequelize = require 'sequelize'
 co        = require 'co'
 
+Config    = require './conf'
 Utility   = require('./util/util').Utility
-Config    = require Utility.getConfigPath('.')
 HTTPError = require('./util/util').HTTPError
 
 GROUP_CREATOR = 0

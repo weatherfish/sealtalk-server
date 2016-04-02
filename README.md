@@ -222,13 +222,19 @@ grunt release
 | [/user/get_image_token](#post-userget_image_token) | 获取云存储所用 Token |
 | [/user/get_sms_img_code](#post-userget_sms_img_code) | 获取短信图形验证码 |
 | [/user/groups](#post-usergroups) | 获取当前用户所属群组列表 |
-| [/sync/:version](#post-sync:version) | 同步用户的好友、黑名单、群组、群组成员数据 |
-| [/user/:id](#post-user:id) | 获取用户信息 |
-| [/find/:region/:phone](#post-find:region:phone) | 根据手机号查找用户信息 |
+| [/sync/:version](#post-syncversion) | 同步用户的好友、黑名单、群组、群组成员数据 |
+| [/user/:id](#post-userid) | 获取用户信息 |
+| [/find/:region/:phone](#post-findregionphone) | 根据手机号查找用户信息 |
 
 ### 好友相关接口
 
+| 接口地址 | 说明 |
+|---------|-----|
+
 ### 群组相关接口
+
+| 接口地址 | 说明 |
+|---------|-----|
 
 ## API 说明
 

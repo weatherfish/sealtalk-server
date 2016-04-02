@@ -1,6 +1,6 @@
 crypto  = require 'crypto'
 process = require 'process'
-Config  = require if process.env.NODE_ENV is 'development' then '../conf.dev' else '../conf'
+Config  = require '../conf'
 N3D     = require './n3d'
 
 class Utility
@@ -130,10 +130,6 @@ class Utility
       @n3d.encrypt num
     catch
       null
-
-  # 根据开发环境获取配置文件地址
-  @getConfigPath: (path) ->
-    if process.env.NODE_ENV is 'development' then path + '/conf.dev' else path + '/conf'
 
 # 定义一个通用 API 返回结果模型
 class APIResult

@@ -4,8 +4,8 @@ _         = require 'underscore'
 debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
+Config    = require '../conf'
 Utility   = require('../util/util').Utility
-Config    = require Utility.getConfigPath('..')
 APIResult = require('../util/util').APIResult
 HTTPError = require('../util/util').HTTPError
 

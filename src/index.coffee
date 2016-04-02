@@ -7,8 +7,8 @@ cors              = require 'cors'
 jsonfile          = require 'jsonfile'
 path              = require 'path'
 
+Config            = require './conf'
 Utility           = require('./util/util').Utility
-Config            = require Utility.getConfigPath('.')
 APIResult         = require('./util/util').APIResult
 HTTPError         = require('./util/util').HTTPError
 userRouter        = require './routes/user'       # 引用用户相关接口
