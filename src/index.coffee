@@ -1,4 +1,5 @@
 express           = require 'express'
+_                 = require 'underscore'
 debug             = require 'debug'
 cookieParser      = require 'cookie-parser'
 bodyParser        = require 'body-parser'
@@ -43,6 +44,7 @@ app.all '*', (req, res, next) ->
     '/user/check_username_available'
     '/user/check_phone_available'
     '/update/latest'
+    '/demo_square'
     /\/helper\/.*/
   ]
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
@@ -106,7 +108,28 @@ app.get '/demo_square', (req, res, next) ->
   try
     demoSquareData = jsonfile.readFileSync path.join __dirname, 'demo_square.json'
 
-    res.send new APIResult 200, Utility.encodeResults demoSquareData
+    groupIds = _.chain(demoSquareData).where({ type: 'group' }).pluck('id').value()
+
+    # 引用数据库对象和模型
+    [sequelize, User, Blacklist, Friendship, Group] = require './db'
+    MAX_GROUP_MEMBER_COUNT = 3000
+
+    Group.findAll
+      where:
+        id:
+          $in:
+            groupIds
+      attributes: [
+        'id'
+        'memberCount'
+      ]
+    .then (groups) ->
+      demoSquareData.forEach (item) ->
+        if item.type is 'group'
+          item.memberCount = _.findWhere(groups, { id: item.id }).memberCount
+          item.maxMemberCount = MAX_GROUP_MEMBER_COUNT
+
+      res.send new APIResult 200, Utility.encodeResults demoSquareData
   catch err
     next err
 

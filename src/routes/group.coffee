@@ -24,8 +24,8 @@ PORTRAIT_URI_MAX_LENGTH = 256
 GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH = 1
 GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH = 32
 
-MAX_GROUP_MEMBER_COUNT = 500
-MAX_USER_GROUP_OWN_COUNT = 500
+MAX_GROUP_MEMBER_COUNT = 3000
+MAX_USER_GROUP_OWN_COUNT = 3000
 
 GROUP_OPERATION_CREATE  = 'Create'
 GROUP_OPERATION_ADD     = 'Add'
@@ -155,7 +155,7 @@ router.post '/add', (req, res, next) ->
   timestamp = Date.now()
 
   Group.getInfo groupId
-  .then (group)->
+  .then (group) ->
     if not group
       return res.status(404).send 'Unknown group.'
 
@@ -226,7 +226,7 @@ router.post '/join', (req, res, next) ->
   timestamp = Date.now()
 
   Group.getInfo groupId
-  .then (group)->
+  .then (group) ->
     if not group
       return res.status(404).send 'Unknown group.'
 
@@ -301,7 +301,7 @@ router.post '/kick', (req, res, next) ->
     return res.status(400).send 'Can not kick yourself.'
 
   Group.getInfo groupId
-  .then (group)->
+  .then (group) ->
     if not group
       return res.status(404).send 'Unknown group.'
 
@@ -311,11 +311,11 @@ router.post '/kick', (req, res, next) ->
     # 要踢出群组的 memberId 不在群组里
     GroupMember.findAll
       where:
-        groupId : groupId
+        groupId: groupId
       attributes: [
         'memberId'
       ]
-    .then (groupMembers)->
+    .then (groupMembers) ->
       if groupMembers.length is 0
         throw new Error 'Group member should not be empty, please check your database.'
 

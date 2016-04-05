@@ -34,7 +34,7 @@ validator = sequelize.Validator
 
 # 国际电话区号和国家代码对应关系
 regionMap =
-  '86' : 'zh-CN'
+  '86': 'zh-CN'
 
 # 获取新 Token 并更新到数据库
 getToken = (userId, nickname, portraitUri) ->
