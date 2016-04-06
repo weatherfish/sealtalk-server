@@ -44,7 +44,6 @@ app.all '*', (req, res, next) ->
     '/user/check_username_available'
     '/user/check_phone_available'
     '/update/latest'
-    '/demo_square'
     /\/helper\/.*/
   ]
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)

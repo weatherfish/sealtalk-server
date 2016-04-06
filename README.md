@@ -222,9 +222,9 @@ grunt release
 | [/user/get_image_token](#post-userget_image_token) | 获取云存储所用 Token |
 | [/user/get_sms_img_code](#post-userget_sms_img_code) | 获取短信图形验证码 |
 | [/user/groups](#post-usergroups) | 获取当前用户所属群组列表 |
-| [/sync/:version](#post-syncversion) | 同步用户的好友、黑名单、群组、群组成员数据 |
+| [/user/sync/:version](#post-usersyncversion) | 同步用户的好友、黑名单、群组、群组成员数据 |
+| [/user/find/:region/:phone](#post-userfindregionphone) | 根据手机号查找用户信息 |
 | [/user/:id](#post-userid) | 获取用户信息 |
-| [/find/:region/:phone](#post-findregionphone) | 根据手机号查找用户信息 |
 
 ### 好友相关接口
 
@@ -908,7 +908,7 @@ grunt release
 
 * 500: 应用服务器内部错误
 
-### POST /sync/:version
+### POST /user/sync/:version
 
 同步用户的好友、黑名单、群组、群组成员数据。
 
@@ -1026,9 +1026,9 @@ grunt release
 * 400: 错误的请求
 * 500: 应用服务器内部错误
 
-### POST /user/:id
+### POST /user/find/:region/:phone
 
-获取用户信息。
+根据手机号查找用户信息。
 
 #### 前置条件
 
@@ -1036,7 +1036,8 @@ grunt release
 
 #### 请求参数
 
-* id: 用户 Id
+* region: 国际电话区号
+* phone: 手机号
 
 #### 返回结果
 
@@ -1067,9 +1068,9 @@ grunt release
 * 404: 无此用户
 * 500: 应用服务器内部错误
 
-### POST /find/:region/:phone
+### POST /user/:id
 
-根据手机号查找用户信息。
+获取用户信息。
 
 #### 前置条件
 
@@ -1077,8 +1078,7 @@ grunt release
 
 #### 请求参数
 
-* region: 国际电话区号
-* phone: 手机号
+* id: 用户 Id
 
 #### 返回结果
 
