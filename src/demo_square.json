@@ -13,18 +13,22 @@
   },
   {
     "type": "chatroom",
-    "id": 1
+    "id": 1,
+    "name": "聊天室 I"
   },
   {
     "type": "chatroom",
-    "id": 2
+    "id": 2,
+    "name": "聊天室 II"
   },
   {
     "type": "chatroom",
-    "id": 3
+    "id": 3,
+    "name": "聊天室 III"
   },
   {
     "type": "chatroom",
-    "id": 4
+    "id": 4,
+    "name": "聊天室 IV"
   }
 ]

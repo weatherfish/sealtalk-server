@@ -120,12 +120,19 @@ app.get '/demo_square', (req, res, next) ->
             groupIds
       attributes: [
         'id'
+        'name'
+        'portraitUri'
         'memberCount'
       ]
     .then (groups) ->
       demoSquareData.forEach (item) ->
         if item.type is 'group'
-          item.memberCount = _.findWhere(groups, { id: item.id }).memberCount
+          group = _.findWhere(groups, { id: item.id })
+          group = { name: 'Unknown', portraitUri: '', memberCount: 0 } if not group
+
+          item.name = group.name
+          item.portraitUri = group.portraitUri
+          item.memberCount = group.memberCount
           item.maxMemberCount = MAX_GROUP_MEMBER_COUNT
 
       res.send new APIResult 200, Utility.encodeResults demoSquareData
