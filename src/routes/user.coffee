@@ -165,7 +165,7 @@ router.post '/check_phone_available', (req, res, next) ->
   phone  = req.body.phone
 
   # 如果不是合法的手机号，直接返回，省去查询数据库的步骤
-  if not validator.isMobilePhone phone, regionMap[region]
+  if not validator.isMobilePhone phone.toString(), regionMap[region]
     return res.status(400).send 'Invalid region and phone number.'
 
   User.checkPhoneAvailable region, phone
@@ -224,7 +224,7 @@ router.post '/register', (req, res, next) ->
 
               res.send new APIResult 200, Utility.encodeResults id: user.id
       else
-        res.status(400).send 'Mobile has already existed.'
+        res.status(400).send 'Phone number has already existed.'
       # else
       #   res.status(403).send 'Username has already existed.'
   .catch next

@@ -303,6 +303,8 @@ router.post '/delete', (req, res, next) ->
 
   Friendship.update
     status: FRIENDSHIP_DELETED
+    displayName: ''
+    message: ''
     timestamp: timestamp
   ,
     where:
