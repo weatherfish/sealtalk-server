@@ -12,20 +12,21 @@ Config            = require './conf'
 Utility           = require('./util/util').Utility
 APIResult         = require('./util/util').APIResult
 HTTPError         = require('./util/util').HTTPError
-userRouter        = require './routes/user'       # 引用用户相关接口
-friendshipRouter  = require './routes/friendship' # 引用好友相关接口
-groupRouter       = require './routes/group'      # 引用群组相关接口
+userRouter        = require './routes/user'         # 引用用户相关接口
+friendshipRouter  = require './routes/friendship'   # 引用好友相关接口
+groupRouter       = require './routes/group'        # 引用群组相关接口
+miscRouter        = require './routes/misc'         # 引用其他功能接口
 
-log = debug 'app:log'
-logError = debug 'app:error'
-logPath = debug 'app:path'
+log       = debug 'app:log'
+logError  = debug 'app:error'
+logPath   = debug 'app:path'
 
 app = express()
 
-app.use compression()                 # 使用内容压缩
-app.use cookieParser()                # 使用 Cookie 解析器
-app.use bodyParser.json()             # 使用 Body 解析器
-app.use cors                          # 使用 CORS，支持跨域
+app.use compression()       # 使用内容压缩
+app.use cookieParser()      # 使用 Cookie 解析器
+app.use bodyParser.json()   # 使用 Body 解析器
+app.use cors                # 使用 CORS，支持跨域
   origin: Config.CORS_HOSTS
   credentials: true
 
@@ -43,7 +44,8 @@ app.all '*', (req, res, next) ->
     '/user/get_sms_img_code'
     '/user/check_username_available'
     '/user/check_phone_available'
-    '/update/latest'
+    '/misc/latest_update'
+    '/misc/demo_square'
     /\/helper\/.*/
   ]
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
@@ -66,7 +68,8 @@ app.all '*', (req, res, next) ->
 
 parameterPreprocessor = (req, res, next) ->
   for prop of req.body
-    if Utility.isEmpty req.body[prop] then return res.status(400).send "Empty #{prop}."
+    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName'
+      return res.status(400).send "Empty #{prop}."
 
     if prop.endsWith('Id') or prop.endsWith('Ids')
       req.body['encoded' + prop[0].toUpperCase() + prop.substr(1)] = req.body[prop]
@@ -87,57 +90,7 @@ app.use parameterPreprocessor           # 参数判断和转换
 app.use '/user', userRouter             # 加载用户相关接口
 app.use '/friendship', friendshipRouter # 加载好友相关接口
 app.use '/group', groupRouter           # 加载群组相关接口
-
-app.get '/update/latest', (req, res, next) ->
-  clientVersion = req.query.version
-
-  try
-    squirrelConfig = jsonfile.readFileSync path.join __dirname, 'squirrel.json'
-
-    if clientVersion is squirrelConfig.version
-      res.status(204).end()
-    else
-      res.send
-        url: squirrelConfig.url
-  catch err
-    next err
-
-# 获取 Demo 演示所需要的群组和聊天室名单
-app.get '/demo_square', (req, res, next) ->
-  try
-    demoSquareData = jsonfile.readFileSync path.join __dirname, 'demo_square.json'
-
-    groupIds = _.chain(demoSquareData).where({ type: 'group' }).pluck('id').value()
-
-    # 引用数据库对象和模型
-    [sequelize, User, Blacklist, Friendship, Group] = require './db'
-    MAX_GROUP_MEMBER_COUNT = 3000
-
-    Group.findAll
-      where:
-        id:
-          $in:
-            groupIds
-      attributes: [
-        'id'
-        'name'
-        'portraitUri'
-        'memberCount'
-      ]
-    .then (groups) ->
-      demoSquareData.forEach (item) ->
-        if item.type is 'group'
-          group = _.findWhere(groups, { id: item.id })
-          group = { name: 'Unknown', portraitUri: '', memberCount: 0 } if not group
-
-          item.name = group.name
-          item.portraitUri = group.portraitUri
-          item.memberCount = group.memberCount
-          item.maxMemberCount = MAX_GROUP_MEMBER_COUNT
-
-      res.send new APIResult 200, Utility.encodeResults demoSquareData
-  catch err
-    next err
+app.use '/misc', miscRouter             # 加载其他功能接口
 
 # IMPORTANT !!!
 # 开发测试环境支持，上线时务必将 NODE_ENV 设置为 production 以屏蔽相关接口
