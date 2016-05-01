@@ -31,6 +31,14 @@ userClassMethods =
       attributes: [
         'nickname'
       ]
+  checkUserExists: (userId) ->
+    User.count
+      where:
+        id: userId
+    .then (count) ->
+      Promise.resolve count is 1
+    .catch (err) ->
+      Promise.reject err
   checkPhoneAvailable: (region, phone) ->
     User.count
       where:

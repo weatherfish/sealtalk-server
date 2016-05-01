@@ -433,23 +433,28 @@ router.post '/add_to_blacklist', (req, res, next) ->
   currentUserId = req.app.locals.currentUserId
   timestamp = Date.now()
 
-  # 先调用融云服务器接口
-  rongCloud.user.blacklist.add Utility.encodeId(currentUserId), Utility.encodeId(friendId), (err, resultText) ->
-    # 如果失败直接返回，不保存到数据库
-    if err
-      next err
+  User.checkUserExists friendId
+  .then (result) ->
+    if result
+      # 先调用融云服务器接口
+      rongCloud.user.blacklist.add Utility.encodeId(currentUserId), Utility.encodeId(friendId), (err, resultText) ->
+        # 如果失败直接返回，不保存到数据库
+        if err
+          next err
+        else
+          Blacklist.upsert
+            userId: currentUserId
+            friendId: friendId
+            status: true
+            timestamp: timestamp
+          .then ->
+            # 更新版本号（时间戳）
+            DataVersion.updateBlacklistVersion currentUserId, timestamp
+            .then ->
+              res.send new APIResult 200
     else
-      Blacklist.upsert
-        userId: currentUserId
-        friendId: friendId
-        status: true
-        timestamp: timestamp
-      .then ->
-        # 更新版本号（时间戳）
-        DataVersion.updateBlacklistVersion currentUserId, timestamp
-        .then ->
-          res.send new APIResult 200
-      .catch next
+      res.status(404).send 'friendId is not an available userId.'
+  .catch next
 
 # 将好友从黑名单中移除
 router.post '/remove_from_blacklist', (req, res, next) ->
