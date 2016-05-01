@@ -711,7 +711,7 @@ router.post '/set_display_name', (req, res, next) ->
   groupId = req.body.groupId
   displayName = req.body.displayName
 
-  if not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
+  if (displayName isnt '') and not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of display name invalid.'
 
   currentUserId = req.app.locals.currentUserId

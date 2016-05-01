@@ -295,7 +295,7 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/set_display_name?userId=#{_global.userId1}",
         groupId: _global.groupId1
         displayName: ''
-      , 400
+      , 200
       , null
       , done
 

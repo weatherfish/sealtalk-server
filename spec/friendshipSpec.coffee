@@ -194,7 +194,7 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/friendship/set_display_name?userId=#{_global.userId2}",
         friendId: _global.userId1
         displayName: ''
-      , 400
+      , 200
       , null
       , done
 

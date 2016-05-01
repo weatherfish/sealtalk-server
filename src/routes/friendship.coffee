@@ -326,7 +326,7 @@ router.post '/set_display_name', (req, res, next) ->
   friendId    = req.body.friendId
   displayName = req.body.displayName
 
-  if not validator.isLength displayName, FRIEND_DISPLAY_NAME_MIN_LENGTH, FRIEND_DISPLAY_NAME_MAX_LENGTH
+  if (displayName isnt '') and not validator.isLength displayName, FRIEND_DISPLAY_NAME_MIN_LENGTH, FRIEND_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of displayName is out of limit.'
 
   currentUserId = req.app.locals.currentUserId
