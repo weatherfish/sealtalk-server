@@ -52,7 +52,7 @@ sendGroupNotification = (userId, groupId, operation, data) ->
     message: ''
 
   new Promise (resolve, reject) ->
-    rongCloud.message.group.publish encodedUserId, encodedGroupId, 'RC:GrpNtf', groupNotificationMessage,
+    rongCloud.message.group.publish '__system__', encodedGroupId, 'RC:GrpNtf', groupNotificationMessage,
       (err, resultText) ->
         # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
         if err
@@ -516,6 +516,7 @@ router.post '/quit', (req, res, next) ->
               transaction: t
           ]
       .then ->
+        encodedMemberIds = [Utility.encodeId(currentUserId)]
         # 更新版本号（时间戳）
         DataVersion.updateGroupMemberVersion groupId, timestamp
         .then ->
@@ -524,7 +525,7 @@ router.post '/quit', (req, res, next) ->
             GROUP_OPERATION_QUIT,
             data:
               operatorNickname: currentUserNickname
-              targetUserIds: [Utility.encodeId(currentUserId)]
+              targetUserIds: encodedMemberIds
               targetUserDisplayNames: [currentUserNickname]
               timestamp: timestamp
           .then ->
