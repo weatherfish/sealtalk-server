@@ -4,10 +4,7 @@ Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
 
 # 引用数据库对象和模型
-[sequelize, User, Blacklist, Friendship, Group, GroupMember, GroupSync, DataVersion, VerificationCode, LoginLog] = require '../db'
-
-GROUP_CREATOR = 0
-GROUP_MEMBER  = 1
+[sequelize, User] = require '../db'
 
 router = express.Router()
 
