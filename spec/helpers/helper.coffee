@@ -30,27 +30,26 @@ beforeAll ->
 
   this.cookie = null
 
-  this.testPOSTAPI = (path, params, statusCode, testBody, callback, cookie) ->
+  this.testPOSTAPI = (path, params, statusCode, testBody, callback) ->
     _this = this
 
     setTimeout ->
       request app
         .post path
         .type 'json'
-        .set 'cookie', cookie or null
         .send params
         .end (err, res) ->
           _this.testHTTPResult err, res, statusCode, testBody
           callback res.body, res.header['set-cookie'] if callback
     , 10
 
-  this.testGETAPI = (path, statusCode, testBody, callback, cookie) ->
+  this.testGETAPI = (path, statusCode, testBody, callback) ->
+    console.log '---------------------------------------', path
     _this = this
 
     setTimeout ->
       request app
         .get path
-        .set 'cookie', cookie or null
         .end (err, res) ->
           _this.testHTTPResult err, res, statusCode, testBody
           callback res.body if callback

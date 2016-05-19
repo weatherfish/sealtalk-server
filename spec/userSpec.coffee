@@ -348,7 +348,6 @@ describe '用户接口测试', ->
         result:
           token: 'STRING'
       , (body, cookie) ->
-        _global.cookie = cookie
         expect(cookie).not.toBeNull()
         expect(body.result.id).toEqual(_global.userId1)
         done()
@@ -430,8 +429,19 @@ describe '用户接口测试', ->
 
   describe '获取用户基本信息', ->
 
+    beforeAll (done) ->
+      this.createUser
+        # username: _global.username2
+        region: '86'
+        phone: _global.phoneNumber2
+        nickname: _global.nickname2
+        password: _global.password
+      , (userId) ->
+        _global.userId2 = userId
+        done()
+
     it '成功', (done) ->
-      this.testGETAPI "/user/#{_global.userId1}"
+      this.testGETAPI "/user/#{_global.userId2}?userId=#{_global.userId1}"
       , 200
       ,
         code: 200
@@ -440,13 +450,41 @@ describe '用户接口测试', ->
           nickname: 'STRING'
           portraitUri: 'STRING'
       , done
-      , _global.cookie
 
     it '用户 Id 不存在', (done) ->
       this.testGETAPI "/user/5Vg2XCh9f?userId=#{_global.userId1}"
       , 404
       , null
       , done
+
+  describe '批量获取用户基本信息', ->
+
+    it '成功', (done) ->
+      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=#{_global.userId2}&userId=#{_global.userId1}"
+      , 200
+      , code: 200
+      , (body) ->
+        expect(body.result.length).toEqual(2)
+        if body.result.length > 0
+          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].nickname).toBeDefined()
+          expect(body.result[0].portraitUri).toBeDefined()
+          expect(body.result[1].id).toBeDefined()
+          expect(body.result[1].nickname).toBeDefined()
+          expect(body.result[1].portraitUri).toBeDefined()
+        done()
+
+    it 'UserId 不存在', (done) ->
+      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=5Vg2XCh9f&userId=#{_global.userId1}"
+      , 200
+      , code: 200
+      , (body) ->
+        expect(body.result.length).toEqual(1)
+        if body.result.length > 0
+          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].nickname).toBeDefined()
+          expect(body.result[0].portraitUri).toBeDefined()
+        done()
 
   describe '根据手机号查找用户信息', ->
 
@@ -676,17 +714,6 @@ describe '用户接口测试', ->
       , done
 
   describe '加入黑名单列表', ->
-
-    beforeAll (done) ->
-      this.createUser
-        # username: _global.username2
-        region: '86'
-        phone: _global.phoneNumber2
-        nickname: _global.nickname2
-        password: _global.password
-      , (userId) ->
-        _global.userId2 = userId
-        done()
 
     it '成功', (done) ->
       this.testPOSTAPI "/user/add_to_blacklist?userId=#{_global.userId1}",

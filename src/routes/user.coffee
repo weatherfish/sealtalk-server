@@ -739,6 +739,27 @@ router.get '/sync/:version', (req, res, next) ->
         group_members: groupMembers
   .catch next
 
+# 批量获取用户信息
+router.get '/batch', (req, res, next) ->
+  ids = req.query.id
+
+  ids = [ids] if not Array.isArray ids
+
+  ids = Utility.decodeIds ids
+
+  User.findAll
+    where:
+      id:
+        $in: ids
+    attributes: [
+      'id'
+      'nickname'
+      'portraitUri'
+    ]
+  .then (users) ->
+    res.send new APIResult 200, Utility.encodeResults users
+  .catch next
+
 # 获取用户信息
 router.get '/:id', (req, res, next) ->
   userId = req.params.id
