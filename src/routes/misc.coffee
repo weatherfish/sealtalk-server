@@ -29,6 +29,9 @@ router.get '/latest_update', (req, res, next) ->
     else
       res.send
         url: squirrelConfig.url
+        name:squirrelConfig.name
+        notes:squirrelConfig.notes
+        pub_date:squirrelConfig.pub_date
   catch err
     next err
 
