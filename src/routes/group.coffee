@@ -223,6 +223,7 @@ router.post '/join', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
 
   currentUserId = req.app.locals.currentUserId
+  currentUserNickname = req.app.locals.currentUserNickname
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -268,8 +269,9 @@ router.post '/join', (req, res, next) ->
               groupId,
               GROUP_OPERATION_ADD,
               data:
-                operatorNickname: req.app.locals.currentUserNickname
+                operatorNickname: currentUserNickname
                 targetUserIds: encodedIds
+                targetUserDisplayNames: [currentUserNickname]
                 timestamp: timestamp
           else
             logError 'Error: join group failed on IM server, code: %s', result.code

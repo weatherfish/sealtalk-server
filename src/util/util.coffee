@@ -27,6 +27,7 @@ class Utility
       #secure: true
       httpOnly: true
       maxAge: Config.AUTH_COOKIE_MAX_AGE
+      expires: new Date(Date.now() + Config.AUTH_COOKIE_MAX_AGE)
 
   @setNicknameCookie: (res, nickname) ->
     value = @encryptText nickname, Config.AUTH_COOKIE_KEY
@@ -35,6 +36,7 @@ class Utility
       #secure: true
       httpOnly: true
       maxAge: Config.AUTH_COOKIE_MAX_AGE
+      expires: new Date(Date.now() + Config.AUTH_COOKIE_MAX_AGE)
 
   @encryptText: (text, password) ->
     salt = @random 1000, 9999
