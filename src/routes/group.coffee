@@ -756,14 +756,15 @@ router.get '/:id', (req, res, next) ->
     if not group
       return res.status(404).send 'Unknown group.'
 
+    # ADD: 不做判断了，因为离开群组的用户有些情况下也需要群组信息
     # 群组成员才可以查看群组信息
-    GroupMember.count
-      where:
-        groupId: groupId
-        memberId: currentUserId
-    .then (count) ->
-      if count is 0
-        return res.status(403).send 'Only group member can get group info.'
+    # GroupMember.count
+    #   where:
+    #     groupId: groupId
+    #     memberId: currentUserId
+    # .then (count) ->
+    #   if count is 0
+    #     return res.status(403).send 'Only group member can get group info.'
 
       res.send new APIResult 200, Utility.encodeResults group, ['id', 'creatorId']
   .catch next
