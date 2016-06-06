@@ -344,7 +344,8 @@ describe '群组接口测试', ->
       , null
       , done
 
-    it '当前用户不是群组成员', (done) ->
+    # 不再需要做这个判断了
+    xit '当前用户不是群组成员', (done) ->
       this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId3}"
       , 403
       , null

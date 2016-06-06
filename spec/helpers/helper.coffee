@@ -44,7 +44,6 @@ beforeAll ->
     , 10
 
   this.testGETAPI = (path, statusCode, testBody, callback) ->
-    console.log '---------------------------------------', path
     _this = this
 
     setTimeout ->

@@ -766,7 +766,7 @@ router.get '/:id', (req, res, next) ->
     #   if count is 0
     #     return res.status(403).send 'Only group member can get group info.'
 
-      res.send new APIResult 200, Utility.encodeResults group, ['id', 'creatorId']
+    res.send new APIResult 200, Utility.encodeResults group, ['id', 'creatorId']
   .catch next
 
 # 获取群组成员
