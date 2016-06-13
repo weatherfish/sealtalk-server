@@ -751,7 +751,9 @@ router.get '/:id', (req, res, next) ->
       'portraitUri'
       'memberCount'
       'creatorId'
+      'deletedAt'
     ]
+    paranoid: false
   .then (group) ->
     if not group
       return res.status(404).send 'Unknown group.'

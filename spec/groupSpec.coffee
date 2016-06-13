@@ -323,34 +323,6 @@ describe '群组接口测试', ->
         expect(body.result.length).toEqual(0)
         done()
 
-  describe '获取群组信息', ->
-
-    it '成功', (done) ->
-      this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId1}"
-      , 200
-      ,
-        code: 200
-        result:
-          id: 'STRING'
-          name: 'STRING'
-          portraitUri: 'STRING'
-          memberCount: 'INTEGER'
-          creatorId: 'STRING'
-      , done
-
-    it '群组 Id 不存在', (done) ->
-      this.testGETAPI "/group/5Vg2XCh9f?userId=#{_global.userId1}"
-      , 404
-      , null
-      , done
-
-    # 不再需要做这个判断了
-    xit '当前用户不是群组成员', (done) ->
-      this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId3}"
-      , 403
-      , null
-      , done
-
   describe '获取群组成员', ->
 
     it '成功', (done) ->
@@ -675,6 +647,48 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/quit?userId=#{_global.userId1}",
         groupId: null
       , 400
+      , null
+      , done
+
+  describe '获取群组信息', ->
+
+    it '成功获取存在的群组', (done) ->
+      this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId1}"
+      , 200
+      ,
+        code: 200
+        result:
+          id: 'STRING'
+          name: 'STRING'
+          portraitUri: 'STRING'
+          memberCount: 'INTEGER'
+          creatorId: 'STRING'
+      , done
+
+    it '成功获取已经解散的群组', (done) ->
+      this.testGETAPI "/group/#{_global.groupId2}?userId=#{_global.userId1}"
+      , 200
+      ,
+        code: 200
+        result:
+          id: 'STRING'
+          name: 'STRING'
+          portraitUri: 'STRING'
+          memberCount: 'INTEGER'
+          creatorId: 'STRING'
+          deletedAt: 'STRING'
+      , done
+
+    it '群组 Id 不存在', (done) ->
+      this.testGETAPI "/group/5Vg2XCh9f?userId=#{_global.userId1}"
+      , 404
+      , null
+      , done
+
+    # 不再需要做这个判断了
+    xit '当前用户不是群组成员', (done) ->
+      this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId3}"
+      , 403
       , null
       , done
 
