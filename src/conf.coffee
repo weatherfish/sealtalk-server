@@ -6,7 +6,7 @@ module.exports =
   # Cookie 加密密钥，请在部署时重新生成
   AUTH_COOKIE_KEY: '<-- 此处设置一个加密 Cookie 密钥 -->'
   # Cookie 加密密钥，请在部署时重新生成
-  AUTH_COOKIE_MAX_AGE: '<-- 此处设置一个 Cookie 过期时间，注意改为数字类型 -->'
+  AUTH_COOKIE_MAX_AGE: '<-- 此处设置一个 Cookie 过期时间 -->'
   # 融云颁发的 App Key，请访问融云开发者后台：https://developer.rongcloud.cn
   RONGCLOUD_APP_KEY: '<-- 此处填写融云颁发的 App Key -->'
   # 融云颁发的 App Secret，请访问融云开发者后台：https://developer.rongcloud.cn
@@ -36,6 +36,6 @@ module.exports =
   # MySQL 数据库密码
   DB_PASSWORD: '<-- 此处设置数据库密码 -->'
   # MySQL 数据库地址
-  DB_HOST: '192.168.0.100'
+  DB_HOST: '<-- 此处设置数据库的 IP 地址 -->'
   # MySQL 数据库端口号
   DB_PORT: '3306'

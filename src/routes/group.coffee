@@ -336,63 +336,65 @@ router.post '/kick', (req, res, next) ->
       if isKickNonMember
         return res.status(400).send 'Can not kick none-member from the group.'
 
-      sequelize.transaction (t) ->
-        Promise.all [
-          Group.update
-            memberCount: group.memberCount - memberIds.length
+      User.getUserNames memberIds
+      .then (users) ->
+        nicknames = users.map (user) ->
+          user.nickname
+
+        sendGroupNotification currentUserId,
+          groupId,
+          GROUP_OPERATION_KICKED,
+          data:
+            operatorNickname: req.app.locals.currentUserNickname
+            targetUserIds: encodedMemberIds
+            targetUserDisplayNames: nicknames
             timestamp: timestamp
-          ,
-            where:
-              id: groupId
-            transaction: t
-        ,
-          GroupMember.update
-            isDeleted: true
-            timestamp: timestamp
-          ,
-            where:
-              groupId: groupId
-              memberId:
-                $in: memberIds
-            transaction: t
-        ]
-      .then ->
-        # 更新版本号（时间戳）
-        DataVersion.updateGroupMemberVersion groupId, timestamp
         .then ->
-          User.getUserNames memberIds
-          .then (users) ->
-            nicknames = users.map (user) ->
-              user.nickname
+          # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
+          rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
+            if err
+              logError 'Error: quit group failed on IM server, error: %s', err
 
-            sendGroupNotification currentUserId,
-              groupId,
-              GROUP_OPERATION_KICKED,
-              data:
-                operatorNickname: req.app.locals.currentUserNickname
-                targetUserIds: encodedMemberIds
-                targetUserDisplayNames: nicknames
-                timestamp: timestamp
+            result = JSON.parse resultText
+            success = result.code is 200
+
+            if not success
+              logError 'Error: quit group failed on IM server, code: %s', result.code
+
+              return res.status(500).send 'Quit failed on IM server.'
+
+              # # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+              # GroupSync.upsert
+              #   syncMember: true
+              # ,
+              #   where:
+              #     groupId: group.id
+
+            sequelize.transaction (t) ->
+              Promise.all [
+                Group.update
+                  memberCount: group.memberCount - memberIds.length
+                  timestamp: timestamp
+                ,
+                  where:
+                    id: groupId
+                  transaction: t
+              ,
+                GroupMember.update
+                  isDeleted: true
+                  timestamp: timestamp
+                ,
+                  where:
+                    groupId: groupId
+                    memberId:
+                      $in: memberIds
+                  transaction: t
+              ]
             .then ->
-              # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
-              rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
-                if err
-                  logError 'Error: quit group failed on IM server, error: %s', err
-
-                result = JSON.parse resultText
-                success = result.code is 200
-
-                if not success
-                  logError 'Error: quit group failed on IM server, code: %s', result.code
-
-                  # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-                  GroupSync.upsert
-                    syncMember: true
-                  ,
-                    where:
-                      groupId: group.id
-
-            res.send new APIResult 200
+              # 更新版本号（时间戳）
+              DataVersion.updateGroupMemberVersion groupId, timestamp
+              .then ->
+                res.send new APIResult 200
   .catch next
 
 # 用户自行退出群组
@@ -423,87 +425,189 @@ router.post '/quit', (req, res, next) ->
       if not isInGroup
         return res.status(403).send 'Current user is not group member.'
 
-      resultMessage = null
+      encodedMemberIds = [Utility.encodeId(currentUserId)]
+
+      sendGroupNotification currentUserId,
+        groupId,
+        GROUP_OPERATION_QUIT,
+        data:
+          operatorNickname: currentUserNickname
+          targetUserIds: encodedMemberIds
+          targetUserDisplayNames: [currentUserNickname]
+          timestamp: timestamp
+      .then ->
+        # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
+        rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
+          if err
+            logError 'Error: quit group failed on IM server, error: %s', err
+
+          result = JSON.parse resultText
+          success = result.code is 200
+
+          if not success
+            logError 'Error: quit group failed on IM server, code: %s', result.code
+
+            return res.status(500).send 'Quit failed on IM server.'
+
+            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+            # GroupSync.upsert
+            #   syncMember: true
+            # ,
+            #   where:
+            #     groupId: group.id
+
+          resultMessage = null
+
+          sequelize.transaction (t) ->
+            # 如果不是创建者，正常退出群组
+            if group.creatorId isnt currentUserId
+              resultMessage = 'Quit.'
+
+              Promise.all [
+                Group.update
+                  memberCount: group.memberCount - 1
+                  timestamp: timestamp
+                ,
+                  where:
+                    id: groupId
+                  transaction: t
+              ,
+                GroupMember.update
+                  isDeleted: true
+                  timestamp: timestamp
+                ,
+                  where:
+                    groupId: groupId
+                    memberId: currentUserId
+                  transaction: t
+              ]
+            # 如果是创建者，且群成员大于一，需要将创建者移交给群组里的第二个成员
+            else if group.memberCount > 1
+              newCreatorId = null
+              # 寻找第一个不是群组创建者的人
+              groupMembers.some (groupMember) ->
+                if groupMember.memberId isnt currentUserId
+                  # 将群组创建者改为第一个不是群组创建者的人
+                  newCreatorId = groupMember.memberId
+                  return true
+                else
+                  return false
+
+              resultMessage = 'Quit and group owner transfered.'
+
+              Promise.all [
+                Group.update
+                  memberCount: group.memberCount - 1
+                  creatorId: newCreatorId
+                  timestamp: timestamp
+                ,
+                  where:
+                    id: groupId
+                  transaction: t
+              ,
+                GroupMember.update
+                  role: GROUP_MEMBER
+                  isDeleted: true
+                  timestamp: timestamp
+                ,
+                  where:
+                    groupId: groupId
+                    memberId: currentUserId
+                  transaction: t
+              ,
+                GroupMember.update
+                  role: GROUP_CREATOR
+                  timestamp: timestamp
+                ,
+                  where:
+                    groupId: groupId
+                    memberId: newCreatorId
+                  transaction: t
+              ]
+            # 群组里没有人了，解散群组
+            else
+              resultMessage = 'Quit and group dismissed.'
+
+              Promise.all [
+                Group.update
+                  memberCount: 0
+                  timestamp: timestamp
+                ,
+                  where:
+                    id: groupId
+                  transaction: t
+              ,
+                Group.destroy
+                  where:
+                    id: groupId
+                  transaction: t
+              ,
+                GroupMember.update
+                  isDeleted: true
+                  timestamp: timestamp
+                ,
+                  where:
+                    groupId: groupId
+                  transaction: t
+              ]
+          .then ->
+            # 更新版本号（时间戳）
+            DataVersion.updateGroupMemberVersion groupId, timestamp
+            .then ->
+              res.send new APIResult 200, null, resultMessage
+  .catch next
+
+# 创建者解散群组
+router.post '/dismiss', (req, res, next) ->
+  groupId = req.body.groupId
+  encodedGroupId = req.body.encodedGroupId
+
+  currentUserId = req.app.locals.currentUserId
+  timestamp = Date.now()
+
+  sendGroupNotification currentUserId,
+    groupId,
+    GROUP_OPERATION_DISMISS,
+    data:
+      operatorNickname: req.app.locals.currentUserNickname
+      timestamp: timestamp
+  .then ->
+    # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
+    rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
+      if err
+        logError 'Error: dismiss group failed on IM server, error: %s', err
+
+      result = JSON.parse resultText
+      success = result.code is 200
+
+      if not success
+        logError 'Error: dismiss group failed on IM server, code: %s', result.code
+
+        return res.send new APIResult 500, null, 'Quit failed on IM server.'
+
+        # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+        GroupSync.upsert
+          dismiss: true
+        ,
+          where:
+            groupId: groupId
 
       sequelize.transaction (t) ->
-        # 如果不是创建者，正常退出群组
-        if group.creatorId isnt currentUserId
-          resultMessage = 'Quit.'
+        Group.update
+          memberCount: 0
+        ,
+          where:
+            id: groupId
+            creatorId: currentUserId
+          transaction: t
+        .then ([affectedCount]) ->
+          log 'affectedCount', affectedCount
+          # 只有创建者才可以解散群组
+          if affectedCount is 0
+            throw new HTTPError 'Unknown group or not creator.', 400
+            #return res.status(400).send 'Unknown group or not creator.'
 
           Promise.all [
-            Group.update
-              memberCount: group.memberCount - 1
-              timestamp: timestamp
-            ,
-              where:
-                id: groupId
-              transaction: t
-          ,
-            GroupMember.update
-              isDeleted: true
-              timestamp: timestamp
-            ,
-              where:
-                groupId: groupId
-                memberId: currentUserId
-              transaction: t
-          ]
-        # 如果是创建者，且群成员大于一，需要将创建者移交给群组里的第二个成员
-        else if group.memberCount > 1
-          newCreatorId = null
-          # 寻找第一个不是群组创建者的人
-          groupMembers.some (groupMember) ->
-            if groupMember.memberId isnt currentUserId
-              # 将群组创建者改为第一个不是群组创建者的人
-              newCreatorId = groupMember.memberId
-              return true
-            else
-              return false
-
-          resultMessage = 'Quit and group owner transfered.'
-
-          Promise.all [
-            Group.update
-              memberCount: group.memberCount - 1
-              creatorId: newCreatorId
-              timestamp: timestamp
-            ,
-              where:
-                id: groupId
-              transaction: t
-          ,
-            GroupMember.update
-              role: GROUP_MEMBER
-              isDeleted: true
-              timestamp: timestamp
-            ,
-              where:
-                groupId: groupId
-                memberId: currentUserId
-              transaction: t
-          ,
-            GroupMember.update
-              role: GROUP_CREATOR
-              timestamp: timestamp
-            ,
-              where:
-                groupId: groupId
-                memberId: newCreatorId
-              transaction: t
-          ]
-        # 群组里没有人了，解散群组
-        else
-          resultMessage = 'Quit and group dismissed.'
-
-          Promise.all [
-            Group.update
-              memberCount: 0
-              timestamp: timestamp
-            ,
-              where:
-                id: groupId
-              transaction: t
-          ,
             Group.destroy
               where:
                 id: groupId
@@ -518,106 +622,13 @@ router.post '/quit', (req, res, next) ->
               transaction: t
           ]
       .then ->
-        encodedMemberIds = [Utility.encodeId(currentUserId)]
         # 更新版本号（时间戳）
         DataVersion.updateGroupMemberVersion groupId, timestamp
         .then ->
-          sendGroupNotification currentUserId,
-            groupId,
-            GROUP_OPERATION_QUIT,
-            data:
-              operatorNickname: currentUserNickname
-              targetUserIds: encodedMemberIds
-              targetUserDisplayNames: [currentUserNickname]
-              timestamp: timestamp
-          .then ->
-            # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
-            rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
-              if err
-                logError 'Error: quit group failed on IM server, error: %s', err
-
-              result = JSON.parse resultText
-              success = result.code is 200
-
-              if not success
-                logError 'Error: quit group failed on IM server, code: %s', result.code
-
-                # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-                GroupSync.upsert
-                  syncMember: true
-                ,
-                  where:
-                    groupId: group.id
-
-          res.send new APIResult 200, null, resultMessage
-  .catch next
-
-# 创建者解散群组
-router.post '/dismiss', (req, res, next) ->
-  groupId = req.body.groupId
-  encodedGroupId = req.body.encodedGroupId
-
-  currentUserId = req.app.locals.currentUserId
-  timestamp = Date.now()
-
-  sequelize.transaction (t) ->
-    Group.update
-      memberCount: 0
-    ,
-      where:
-        id: groupId
-        creatorId: currentUserId
-      transaction: t
-    .then ([affectedCount]) ->
-      log 'affectedCount', affectedCount
-      # 只有创建者才可以解散群组
-      if affectedCount is 0
-        throw new HTTPError 'Unknown group or not creator.', 400
-
-      Promise.all [
-        Group.destroy
-          where:
-            id: groupId
-          transaction: t
-      ,
-        GroupMember.update
-          isDeleted: true
-          timestamp: timestamp
-        ,
-          where:
-            groupId: groupId
-          transaction: t
-      ]
-  .then ->
-    # 更新版本号（时间戳）
-    DataVersion.updateGroupMemberVersion groupId, timestamp
-    .then ->
-      sendGroupNotification currentUserId,
-        groupId,
-        GROUP_OPERATION_DISMISS,
-        data:
-          operatorNickname: req.app.locals.currentUserNickname
-          timestamp: timestamp
-      .then ->
-        # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
-        rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
-          if err
-            logError 'Error: dismiss group failed on IM server, error: %s', err
-
-          result = JSON.parse resultText
-          success = result.code is 200
-
-          if not success
-            logError 'Error: dismiss group failed on IM server, code: %s', result.code
-
-            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-            GroupSync.upsert
-              dismiss: true
-            ,
-              where:
-                groupId: groupId
-
-      res.send new APIResult 200
+          res.send new APIResult 200
+      .catch (err) ->
+        if err instanceof HTTPError
+          return res.status(err.statusCode).send err.message
   .catch next
 
 # 创建者为群组重命名
