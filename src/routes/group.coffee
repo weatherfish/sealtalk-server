@@ -191,10 +191,8 @@ router.post '/add', (req, res, next) ->
           success = result.code is 200
 
           if success
-            User.getUserNames memberIds
-            .then (users) ->
-              nicknames = users.map (user) ->
-                user.nickname
+            User.getNicknames memberIds
+            .then (nicknames) ->
 
               sendGroupNotification currentUserId,
                 groupId,
@@ -336,10 +334,8 @@ router.post '/kick', (req, res, next) ->
       if isKickNonMember
         return res.status(400).send 'Can not kick none-member from the group.'
 
-      User.getUserNames memberIds
-      .then (users) ->
-        nicknames = users.map (user) ->
-          user.nickname
+      User.getNicknames memberIds
+      .then (nicknames) ->
 
         sendGroupNotification currentUserId,
           groupId,

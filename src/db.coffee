@@ -1,5 +1,6 @@
 Sequelize = require 'sequelize'
 co        = require 'co'
+_         = require 'underscore'
 
 Config    = require './conf'
 Utility   = require('./util/util').Utility
@@ -16,21 +17,21 @@ sequelize = new Sequelize Config.DB_NAME, Config.DB_USER, Config.DB_PASSWORD,
   logging: null
 
 userClassMethods =
-  getUserNames: (memberIds) ->
+  getNicknames: (memberIds) ->
     User.findAll
       where:
         id:
           $in: memberIds
       attributes: [
+        'id'
         'nickname'
       ]
-  getUserName: (userId) ->
-    User.findOne
-      where:
-        id: userId
-      attributes: [
-        'nickname'
-      ]
+    .then (users) ->
+      memberIds.map (memberId) ->
+        _.find(users, (user) ->
+          user.id is memberId
+        ).nickname
+
   checkUserExists: (userId) ->
     User.count
       where:
@@ -39,6 +40,7 @@ userClassMethods =
       Promise.resolve count is 1
     .catch (err) ->
       Promise.reject err
+
   checkPhoneAvailable: (region, phone) ->
     User.count
       where:
