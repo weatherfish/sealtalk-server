@@ -259,12 +259,13 @@ Friendship.belongsTo User, { foreignKey: 'friendId', constraints: false }
 
 # 群组关系模型
 Group = sequelize.define 'groups',
-  id:           { type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true }
-  name:         { type: Sequelize.STRING(32), allowNull: false, comment: '最小 2 个字' }
-  portraitUri:  { type: Sequelize.STRING(256), allowNull: false, defaultValue: '' }
-  memberCount:  { type: Sequelize.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 }
-  creatorId:    { type: Sequelize.INTEGER.UNSIGNED, allowNull: false }
-  timestamp:    { type: Sequelize.BIGINT.UNSIGNED, allowNull: false, defaultValue: 0, comment: '时间戳（版本号）' }
+  id:             { type: Sequelize.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true }
+  name:           { type: Sequelize.STRING(32), allowNull: false, comment: '最小 2 个字' }
+  portraitUri:    { type: Sequelize.STRING(256), allowNull: false, defaultValue: '' }
+  memberCount:    { type: Sequelize.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 }
+  maxMemberCount: { type: Sequelize.INTEGER.UNSIGNED, allowNull: false, defaultValue: 500 }
+  creatorId:      { type: Sequelize.INTEGER.UNSIGNED, allowNull: false }
+  timestamp:      { type: Sequelize.BIGINT.UNSIGNED, allowNull: false, defaultValue: 0, comment: '时间戳（版本号）' }
   ,
     classMethods: groupClassMethods
     paranoid: true

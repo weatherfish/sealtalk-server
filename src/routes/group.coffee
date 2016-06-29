@@ -24,7 +24,7 @@ PORTRAIT_URI_MAX_LENGTH = 256
 GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH = 1
 GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH = 32
 
-MAX_GROUP_MEMBER_COUNT = 3000
+DEFAULT_MAX_GROUP_MEMBER_COUNT = 500
 MAX_USER_GROUP_OWN_COUNT = 3000
 
 GROUP_OPERATION_CREATE  = 'Create'
@@ -78,8 +78,8 @@ router.post '/create', (req, res, next) ->
     return res.status(400).send 'Length of group name is out of limit.'
   if memberIds.length is 1
     return res.status(400).send "Group's member count should be greater than 1 at least."
-  if memberIds.length > MAX_GROUP_MEMBER_COUNT
-    return res.status(400).send "Group's member count is out of max group member count limit (#{MAX_GROUP_MEMBER_COUNT})."
+  if memberIds.length > DEFAULT_MAX_GROUP_MEMBER_COUNT
+    return res.status(400).send "Group's member count is out of max group member count limit (#{DEFAULT_MAX_GROUP_MEMBER_COUNT})."
 
   currentUserId = req.app.locals.currentUserId
   timestamp = Date.now()
@@ -161,8 +161,8 @@ router.post '/add', (req, res, next) ->
 
     memberCount = group.memberCount + memberIds.length
 
-    if memberCount > MAX_GROUP_MEMBER_COUNT
-      return res.status(400).send "Group's member count is out of max group member count limit (#{MAX_GROUP_MEMBER_COUNT})."
+    if memberCount > group.maxMemberCount
+      return res.status(400).send "Group's member count is out of max group member count limit (#{group.maxMemberCount})."
 
     sequelize.transaction (t) ->
       Promise.all [
@@ -231,8 +231,8 @@ router.post '/join', (req, res, next) ->
 
     memberCount = group.memberCount + 1
 
-    if memberCount > MAX_GROUP_MEMBER_COUNT
-      return res.status(400).send "Group's member count is out of max group member count limit (#{MAX_GROUP_MEMBER_COUNT})."
+    if memberCount > group.maxMemberCount
+      return res.status(400).send "Group's member count is out of max group member count limit (#{group.maxMemberCount})."
 
     sequelize.transaction (t) ->
       Promise.all [
@@ -757,6 +757,7 @@ router.get '/:id', (req, res, next) ->
       'name'
       'portraitUri'
       'memberCount'
+      'maxMemberCount'
       'creatorId'
       'deletedAt'
     ]

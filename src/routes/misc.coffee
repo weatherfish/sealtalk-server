@@ -10,8 +10,6 @@ APIResult         = require('../util/util').APIResult
 # 引用数据库对象和模型
 [sequelize, User, Blacklist, Friendship, Group] = require '../db'
 
-MAX_GROUP_MEMBER_COUNT = 3000
-
 router = express.Router()
 
 # 获取最新 Mac 客户端更新信息
@@ -62,7 +60,7 @@ router.get '/demo_square', (req, res, next) ->
           item.name = group.name
           item.portraitUri = group.portraitUri
           item.memberCount = group.memberCount
-          item.maxMemberCount = MAX_GROUP_MEMBER_COUNT
+          item.maxMemberCount = group.maxMemberCount
 
       res.send new APIResult 200, Utility.encodeResults demoSquareData
   catch err

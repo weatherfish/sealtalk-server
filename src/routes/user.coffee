@@ -13,6 +13,8 @@ APIResult = require('../util/util').APIResult
 # 引用数据库对象和模型
 [sequelize, User, Blacklist, Friendship, Group, GroupMember, GroupSync, DataVersion, VerificationCode, LoginLog] = require '../db'
 
+MAX_GROUP_MEMBER_COUNT = 500
+
 NICKNAME_MIN_LENGTH = 1
 NICKNAME_MAX_LENGTH = 32
 
@@ -296,8 +298,6 @@ router.post '/login', (req, res, next) ->
         getToken user.id, user.nickname, user.portraitUri
         .then (token) ->
           res.send new APIResult 200, Utility.encodeResults id: user.id, token: token
-        .catch ->
-          res.send new APIResult 200, Utility.encodeResults id: user.id, token: ''
       else
         res.send new APIResult 200, Utility.encodeResults id: user.id, token: user.rongCloudToken
   .catch next
@@ -498,16 +498,12 @@ router.get '/get_token', (req, res, next) ->
       'id'
       'nickname'
       'portraitUri'
-      'rongCloudToken'
     ]
   .then (user) ->
-    if user.rongCloudToken is not ''
-      res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: user.rongCloudToken }, 'userId'
-    else
-      # 数据库中没有缓存 Token 则调用 Server API SDK 获取 Token
-      getToken user.id, user.nickname, user.portraitUri
-      .then (token) ->
-        res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: token }, 'userId'
+    # 调用 Server API SDK 获取 Token
+    getToken user.id, user.nickname, user.portraitUri
+    .then (token) ->
+      res.send new APIResult 200, Utility.encodeResults { userId: user.id, token: token }, 'userId'
   .catch next
 
 # 获取云存储所用 Token
@@ -618,6 +614,7 @@ router.get '/groups', (req, res, next) ->
         'portraitUri'
         'creatorId'
         'memberCount'
+        'maxMemberCount'
       ]
     ]
   .then (groups) ->
