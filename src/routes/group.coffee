@@ -67,7 +67,7 @@ validator = sequelize.Validator
 
 # 当前用户创建群组
 router.post '/create', (req, res, next) ->
-  name      = req.body.name
+  name      = Utility.xss req.body.name, GROUP_NAME_MAX_LENGTH
   memberIds = req.body.memberIds
   encodedMemberIds = req.body.encodedMemberIds
 
@@ -630,7 +630,7 @@ router.post '/dismiss', (req, res, next) ->
 # 创建者为群组重命名
 router.post '/rename', (req, res, next) ->
   groupId = req.body.groupId
-  name    = req.body.name
+  name    = Utility.xss req.body.name, GROUP_NAME_MAX_LENGTH
   encodedGroupId = req.body.encodedGroupId
 
   if not validator.isLength name, GROUP_NAME_MIN_LENGTH, GROUP_NAME_MAX_LENGTH
@@ -687,7 +687,7 @@ router.post '/rename', (req, res, next) ->
 # 创建者设置群组头像地址
 router.post '/set_portrait_uri', (req, res, next) ->
   groupId     = req.body.groupId
-  portraitUri = req.body.portraitUri
+  portraitUri = Utility.xss req.body.portraitUri, PORTRAIT_URI_MAX_LENGTH
 
   if not validator.isURL portraitUri, { protocols: ['http', 'https'], require_protocol: true }
     return res.status(400).send 'Invalid portraitUri format.'
@@ -719,7 +719,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
 # 修改自己的群组昵称
 router.post '/set_display_name', (req, res, next) ->
   groupId = req.body.groupId
-  displayName = req.body.displayName
+  displayName = Utility.xss req.body.displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH
 
   if (displayName isnt '') and not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of display name invalid.'

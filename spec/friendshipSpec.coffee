@@ -25,13 +25,21 @@ describe '好友接口测试', ->
     it '成功', (done) ->
       this.testPOSTAPI "/friendship/invite?userId=#{_global.userId1}",
         friendId: _global.userId2
-        message: 'I am user1'
+        message: _global.xssString
       , 200
       ,
         code: 200
         result:
           action: 'Sent'
-      , done
+      , (body) ->
+        _global.testGETAPI "/friendship/all?userId=#{_global.userId2}"
+        , 200
+        , code: 200
+        , (body) ->
+          expect(body.result.length).toEqual(1)
+          if body.result.length > 0
+            expect(body.result[0].message).toEqual(_global.filteredString)
+          done()
 
     it '3天(秒)内重新发出邀请', (done) ->
       this.testPOSTAPI "/friendship/invite?userId=#{_global.userId1}",
@@ -169,10 +177,17 @@ describe '好友接口测试', ->
     it '成功', (done) ->
       this.testPOSTAPI "/friendship/set_display_name?userId=#{_global.userId2}",
         friendId: _global.userId1
-        displayName: 'Baby'
+        displayName: _global.xssString
       , 200
-      , null
-      , done
+      , code: 200
+      , (body) ->
+        _global.testGETAPI "/friendship/#{_global.userId1}/profile?userId=#{_global.userId2}"
+        , 200
+        ,
+          code: 200
+          result:
+            displayName: _global.filteredString
+        , done
 
     it '不是好友', (done) ->
       this.testPOSTAPI "/friendship/set_display_name?userId=#{_global.userId2}",

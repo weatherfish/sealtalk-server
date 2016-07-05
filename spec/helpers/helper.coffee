@@ -30,6 +30,9 @@ beforeAll ->
 
   this.cookie = null
 
+  this.xssString = '<a>hello</a>'
+  this.filteredString = '&lt;a&gt;hello&lt;/a&gt;'
+
   this.testPOSTAPI = (path, params, statusCode, testBody, callback) ->
     _this = this
 

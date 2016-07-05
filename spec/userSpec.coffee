@@ -167,7 +167,7 @@ describe '用户接口测试', ->
 
     it '成功', (done) ->
       this.testPOSTAPI '/user/register',
-        nickname: _global.nickname1
+        nickname: _global.xssString
         # username: _global.username
         password: _global.password
         verification_token: verificationCodeToken
@@ -178,7 +178,13 @@ describe '用户接口测试', ->
           id: 'STRING'
       , (body) ->
         _global.userId1 = body.result.id
-        done()
+        _global.testGETAPI "/user/#{_global.userId1}?userId=#{_global.userId1}"
+        , 200
+        ,
+          code: 200
+          result:
+            nickname: _global.filteredString
+        , done
 
     # it '用户名已经存在', (done) ->
     #   this.testPOSTAPI '/user/register',
@@ -459,7 +465,7 @@ describe '用户接口测试', ->
 
   describe '批量获取用户基本信息', ->
 
-    it '成功', (done) ->
+    it '成功，数组', (done) ->
       this.testGETAPI "/user/batch?id=#{_global.userId1}&id=#{_global.userId2}&userId=#{_global.userId1}"
       , 200
       , code: 200
@@ -472,6 +478,18 @@ describe '用户接口测试', ->
           expect(body.result[1].id).toBeDefined()
           expect(body.result[1].nickname).toBeDefined()
           expect(body.result[1].portraitUri).toBeDefined()
+        done()
+
+    it '成功，单一元素', (done) ->
+      this.testGETAPI "/user/batch?id=#{_global.userId1}&userId=#{_global.userId1}"
+      , 200
+      , code: 200
+      , (body) ->
+        expect(body.result.length).toEqual(1)
+        if body.result.length > 0
+          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].nickname).toBeDefined()
+          expect(body.result[0].portraitUri).toBeDefined()
         done()
 
     it 'UserId 不存在', (done) ->
@@ -650,7 +668,7 @@ describe '用户接口测试', ->
   describe '修改昵称', ->
     it '成功', (done) ->
       this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
-        nickname: 'Yang Ariel'
+        nickname: _global.xssString
       , 200
       , code: 200
       , ->
@@ -659,7 +677,7 @@ describe '用户接口测试', ->
         ,
           code: 200
           result:
-            nickname: 'Yang Ariel'
+            nickname: _global.filteredString
         , done
 
     it '昵称长度大于上限', (done) ->

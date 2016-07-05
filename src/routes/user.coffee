@@ -180,9 +180,9 @@ router.post '/check_phone_available', (req, res, next) ->
 
 # 用户注册
 router.post '/register', (req, res, next) ->
-  nickname          = req.body.nickname
+  nickname            = Utility.xss req.body.nickname, NICKNAME_MAX_LENGTH
   # username          = req.body.username
-  password          = req.body.password
+  password            = req.body.password
   verification_token  = req.body.verification_token
 
   if password.indexOf(' ') > 0
@@ -295,6 +295,9 @@ router.post '/login', (req, res, next) ->
         logError 'Sync groups error: ', error
 
       if user.rongCloudToken is ''
+        if req.app.get('env') isnt 'production'
+          return res.send new APIResult 200, Utility.encodeResults id: user.id, token: 'fake token'
+
         getToken user.id, user.nickname, user.portraitUri
         .then (token) ->
           res.send new APIResult 200, Utility.encodeResults id: user.id, token: token
@@ -372,7 +375,7 @@ router.post '/change_password', (req, res, next) ->
 
 # 设置自己的昵称
 router.post '/set_nickname', (req, res, next) ->
-  nickname = req.body.nickname
+  nickname = Utility.xss req.body.nickname, NICKNAME_MAX_LENGTH
 
   if not validator.isLength nickname, NICKNAME_MIN_LENGTH, NICKNAME_MAX_LENGTH
     return res.status(400).send 'Invalid nickname length.'
@@ -387,6 +390,16 @@ router.post '/set_nickname', (req, res, next) ->
     where:
       id: currentUserId
   .then ->
+    # 更新到融云服务器
+    rongCloud.user.refresh currentUserId, nickname, '', (err, resultText) ->
+      if err
+        logError 'RongCloud Server API Error: ', err
+
+      result = JSON.parse resultText
+
+      if result.code isnt 200
+        logError 'RongCloud Server API Error Code: ', result.code
+
     Utility.setNicknameCookie res, nickname
 
     Promise.all [
@@ -400,7 +413,7 @@ router.post '/set_nickname', (req, res, next) ->
 
 # 设置用户头像地址
 router.post '/set_portrait_uri', (req, res, next) ->
-  portraitUri = req.body.portraitUri
+  portraitUri = Utility.xss req.body.portraitUri, PORTRAIT_URI_MAX_LENGTH
 
   if not validator.isURL portraitUri, { protocols: ['http', 'https'], require_protocol: true }
     return res.status(400).send 'Invalid portraitUri format.'

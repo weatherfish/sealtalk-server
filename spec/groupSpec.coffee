@@ -32,7 +32,7 @@ describe '群组接口测试', ->
 
     it '成功', (done) ->
       this.testPOSTAPI "/group/create?userId=#{_global.userId1}",
-        name: _global.groupName1
+        name: _global.xssString
         memberIds: memberIds1_2
       , 200
       ,
@@ -46,6 +46,7 @@ describe '群组接口测试', ->
         ,
           code: 200
           result:
+            name: _global.filteredString
             memberCount: 2
         , (body) ->
           _global.testGETAPI "/group/#{_global.groupId1}/members?userId=#{_global.userId1}"
@@ -132,7 +133,7 @@ describe '群组接口测试', ->
     it '成功', (done) ->
       this.testPOSTAPI "/group/rename?userId=#{_global.userId1}",
         groupId: _global.groupId1
-        name: 'New Name'
+        name: _global.xssString + 'a'
       , 200
       , null
       , ->
@@ -141,7 +142,7 @@ describe '群组接口测试', ->
         ,
           code: 200
           result:
-            name: 'New Name'
+            name: _global.filteredString + 'a'
         , done
 
     it '群组 Id 不存在', (done) ->
@@ -262,10 +263,16 @@ describe '群组接口测试', ->
     it '成功', (done) ->
       this.testPOSTAPI "/group/set_display_name?userId=#{_global.userId1}",
         groupId: _global.groupId1
-        displayName: 'New Me'
+        displayName: _global.xssString
       , 200
       , null
-      , done
+      , (body) ->
+        _global.testGETAPI "/group/#{_global.groupId1}/members?userId=#{_global.userId1}"
+        , 200
+        , code: 200
+        , (body) ->
+          expect(body.result[0].displayName).toEqual(_global.filteredString)
+          done()
 
     it '群组 Id 不存在', (done) ->
       this.testPOSTAPI "/group/set_display_name?userId=#{_global.userId3}",
@@ -313,6 +320,7 @@ describe '群组接口测试', ->
           expect(body.result[0].group.name).toBeDefined()
           expect(body.result[0].group.portraitUri).toBeDefined()
           expect(body.result[0].group.memberCount).toBeDefined()
+          expect(body.result[0].group.maxMemberCount).toBeDefined()
         done()
 
     it '成功，为空', (done) ->
@@ -663,6 +671,7 @@ describe '群组接口测试', ->
           portraitUri: 'STRING'
           memberCount: 'INTEGER'
           creatorId: 'STRING'
+          maxMemberCount: 'INTEGER'
       , done
 
     it '成功获取已经解散的群组', (done) ->
@@ -677,18 +686,12 @@ describe '群组接口测试', ->
           memberCount: 'INTEGER'
           creatorId: 'STRING'
           deletedAt: 'STRING'
+          maxMemberCount: 'INTEGER'
       , done
 
     it '群组 Id 不存在', (done) ->
       this.testGETAPI "/group/5Vg2XCh9f?userId=#{_global.userId1}"
       , 404
-      , null
-      , done
-
-    # 不再需要做这个判断了
-    xit '当前用户不是群组成员', (done) ->
-      this.testGETAPI "/group/#{_global.groupId1}?userId=#{_global.userId3}"
-      , 403
       , null
       , done
 
@@ -769,4 +772,10 @@ describe '群组接口测试', ->
         code: 200
         result:
           version: 'NULL'
+      , done
+
+    it '失败，参数错误', (done) ->
+      this.testGETAPI "/user/sync/abc?userId=#{_global.userId1}"
+      , 400
+      , null
       , done

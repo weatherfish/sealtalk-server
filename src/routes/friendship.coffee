@@ -57,7 +57,7 @@ validator = sequelize.Validator
 # 发送邀请好友
 router.post '/invite', (req, res, next) ->
   friendId = req.body.friendId
-  message  = req.body.message
+  message  = Utility.xss req.body.message, FRIEND_REQUEST_MESSAGE_MAX_LENGTH
 
   if not validator.isLength message, FRIEND_REQUEST_MESSAGE_MIN_LENGTH, FRIEND_REQUEST_MESSAGE_MAX_LENGTH
     return res.status(400).send 'Length of friend request message is out of limit.'
@@ -324,7 +324,7 @@ router.post '/delete', (req, res, next) ->
 # 设置好友备注名
 router.post '/set_display_name', (req, res, next) ->
   friendId    = req.body.friendId
-  displayName = req.body.displayName
+  displayName = Utility.xss req.body.displayName, FRIEND_REQUEST_MESSAGE_MAX_LENGTH
 
   if (displayName isnt '') and not validator.isLength displayName, FRIEND_DISPLAY_NAME_MIN_LENGTH, FRIEND_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of displayName is out of limit.'

@@ -2,6 +2,7 @@ crypto  = require 'crypto'
 process = require 'process'
 Config  = require '../conf'
 N3D     = require './n3d'
+xss     = require 'xss'
 
 class Utility
   @n3d = new N3D Config.N3D_KEY, 1, 4294967295
@@ -132,6 +133,15 @@ class Utility
       @n3d.encrypt num
     catch
       null
+
+  @xss: (str, maxLength) ->
+    result = xss str, whiteList:[]
+
+    if str.length <= maxLength
+      if result.length > maxLength
+        return result.substr 0, maxLength
+
+    return result
 
 # 定义一个通用 API 返回结果模型
 class APIResult
