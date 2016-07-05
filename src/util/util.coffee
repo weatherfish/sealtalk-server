@@ -8,6 +8,10 @@ class Utility
   @n3d = new N3D Config.N3D_KEY, 1, 4294967295
 
   @getCurrentUserId: (req) ->
+    # 开发环境可以通过 URL 参数 ?userId=123 设置当前登录的 userId
+    if process.env.NODE_ENV is 'development' and req.query.userId
+      return Utility.decodeIds req.query.userId
+
     cookie = req.cookies[Config.AUTH_COOKIE_NAME]
 
     return null if not cookie
@@ -15,6 +19,10 @@ class Utility
     parseInt @decryptText cookie, Config.AUTH_COOKIE_KEY
 
   @getCurrentUserNickname: (req) ->
+    # 开发环境可以通过 URL 参数 ?userId=123 设置当前登录的 userId，返回的 userNickname 统一为 'TestUser'
+    if process.env.NODE_ENV is 'development' and req.query.userId
+      return 'TestUser'
+
     cookie = req.cookies[Config.NICKNAME_COOKIE_NAME]
 
     return null if not cookie

@@ -51,17 +51,10 @@ app.all '*', (req, res, next) ->
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
       return next() # 跳过验证
 
-  if app.get('env') is 'development' and req.query.userId
-    # 开发环境可以通过 URL 参数 ?userId=123 设置当前登录的 userId
-    app.locals.currentUserId = Utility.decodeIds req.query.userId
-    app.locals.currentUserNickname = 'TestUser'
-  else
-    # 获取并设置当前登录用户 Id
-    app.locals.currentUserId = Utility.getCurrentUserId req
-    app.locals.currentUserNickname = Utility.getCurrentUserNickname req
+  currentUserId = Utility.getCurrentUserId req
 
   # 无法获取用户 Id，即表示没有登录
-  if not app.locals.currentUserId
+  if not currentUserId
     return res.status(403).send 'Not loged in.'
 
   next()

@@ -295,7 +295,7 @@ router.post '/login', (req, res, next) ->
         logError 'Sync groups error: ', error
 
       if user.rongCloudToken is ''
-        if req.app.get('env') isnt 'production'
+        if req.app.get('env') is 'development'
           return res.send new APIResult 200, Utility.encodeResults id: user.id, token: 'fake token'
 
         getToken user.id, user.nickname, user.portraitUri
@@ -351,7 +351,7 @@ router.post '/change_password', (req, res, next) ->
   if not validator.isLength newPassword, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH
     return res.status(400).send 'Invalid new password length.'
 
-  User.findById req.app.locals.currentUserId,
+  User.findById Utility.getCurrentUserId req,
     attributes: [
       'id'
       'passwordHash'
@@ -380,7 +380,7 @@ router.post '/set_nickname', (req, res, next) ->
   if not validator.isLength nickname, NICKNAME_MIN_LENGTH, NICKNAME_MAX_LENGTH
     return res.status(400).send 'Invalid nickname length.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   User.update
@@ -420,7 +420,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
   if not validator.isLength portraitUri, PORTRAIT_URI_MIN_LENGTH, PORTRAIT_URI_MAX_LENGTH
     return res.status(400).send 'Invalid portraitUri length.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   User.update
@@ -443,7 +443,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
 router.post '/add_to_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   User.checkUserExists friendId
@@ -473,7 +473,7 @@ router.post '/add_to_blacklist', (req, res, next) ->
 router.post '/remove_from_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   # 先调用融云服务器接口
@@ -506,7 +506,7 @@ router.post '/upload_contacts', (req, res, next) ->
 
 # 获取融云 Token
 router.get '/get_token', (req, res, next) ->
-  User.findById req.app.locals.currentUserId,
+  User.findById Utility.getCurrentUserId req,
     attributes: [
       'id'
       'nickname'
@@ -544,7 +544,7 @@ router.get '/get_sms_img_code', (req, res, next) ->
 
 # 获取当前用户黑名单列表
 router.get '/blacklist', (req, res, next) ->
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   Blacklist.findAll
@@ -571,10 +571,11 @@ router.get '/blacklist', (req, res, next) ->
 
         if result.code is 200
           serverBlacklistUserIds = result.users
-          dbBlacklistUserIds = dbBlacklist.map (blacklist) -> blacklist.user.id.toString()
+          dbBlacklistUserIds = dbBlacklist.map (blacklist) -> blacklist.user.id
 
           # 检查和修复数据库中黑名单数据的缺失
           serverBlacklistUserIds.forEach (userId) ->
+            userId = Utility.decodeIds userId
             if dbBlacklistUserIds.indexOf(userId) is -1
               # 数据库中缺失，添加上这个数据
               Blacklist.create
@@ -593,7 +594,7 @@ router.get '/blacklist', (req, res, next) ->
 
           # 检查和修复数据库中黑名单脏数据（多余）
           dbBlacklistUserIds.forEach (userId) ->
-            if serverBlacklistUserIds.indexOf(userId) is -1
+            if serverBlacklistUserIds.indexOf(Utility.encodeId(userId)) is -1
               # 数据库中的脏数据，删除掉
               Blacklist.update
                 status: false
@@ -615,7 +616,7 @@ router.get '/blacklist', (req, res, next) ->
 router.get '/groups', (req, res, next) ->
   GroupMember.findAll
     where:
-      memberId: req.app.locals.currentUserId
+      memberId: Utility.getCurrentUserId req
     attributes: [
       'role'
     ]
@@ -645,7 +646,7 @@ router.get '/sync/:version', (req, res, next) ->
   user = blacklist = friends = groups = groupMembers = null
   maxVersions = []
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
 
   DataVersion.findById currentUserId
   .then (dataVersion) ->

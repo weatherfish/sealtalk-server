@@ -62,7 +62,7 @@ router.post '/invite', (req, res, next) ->
   if not validator.isLength message, FRIEND_REQUEST_MESSAGE_MIN_LENGTH, FRIEND_REQUEST_MESSAGE_MAX_LENGTH
     return res.status(400).send 'Length of friend request message is out of limit.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   log '%s invite user -> %s', currentUserId, friendId
@@ -150,7 +150,7 @@ router.post '/invite', (req, res, next) ->
               DataVersion.updateFriendshipVersion friendId, timestamp
               .then ->
                 sendContactNotification currentUserId,
-                  req.app.locals.currentUserNickname,
+                  Utility.getCurrentUserNickname req,
                   friendId,
                   CONTACT_OPERATION_REQUEST,
                   message,
@@ -210,7 +210,7 @@ router.post '/invite', (req, res, next) ->
             ]
             .then ->
               sendContactNotification currentUserId,
-                req.app.locals.currentUserNickname,
+                Utility.getCurrentUserNickname req,
                 friendId,
                 CONTACT_OPERATION_REQUEST,
                 message,
@@ -224,7 +224,7 @@ router.post '/invite', (req, res, next) ->
 router.post '/agree', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   log '%s agreed to user -> %s', currentUserId, friendId
@@ -260,7 +260,7 @@ router.post '/agree', (req, res, next) ->
         ]
         .then ->
           sendContactNotification currentUserId,
-            req.app.locals.currentUserNickname,
+            Utility.getCurrentUserNickname req,
             friendId,
             CONTACT_OPERATION_ACCEPT_RESPONSE,
             '',
@@ -273,7 +273,7 @@ router.post '/agree', (req, res, next) ->
 router.post '/ignore', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -298,7 +298,7 @@ router.post '/ignore', (req, res, next) ->
 router.post '/delete', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -329,7 +329,7 @@ router.post '/set_display_name', (req, res, next) ->
   if (displayName isnt '') and not validator.isLength displayName, FRIEND_DISPLAY_NAME_MIN_LENGTH, FRIEND_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of displayName is out of limit.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -354,7 +354,7 @@ router.post '/set_display_name', (req, res, next) ->
 router.get '/all', (req, res, next) ->
   Friendship.findAll
     where:
-      userId: req.app.locals.currentUserId
+      userId: Utility.getCurrentUserId req
     attributes: [
       'displayName'
       'message'
@@ -382,7 +382,7 @@ router.get '/:id/profile', (req, res, next) ->
   # 只可以看好友的（好友状态为被对方同意）
   Friendship.findOne
     where:
-      userId: req.app.locals.currentUserId
+      userId: Utility.getCurrentUserId req
       friendId: userId
       status: FRIENDSHIP_AGREED
     attributes: [

@@ -81,7 +81,7 @@ router.post '/create', (req, res, next) ->
   if memberIds.length > DEFAULT_MAX_GROUP_MEMBER_COUNT
     return res.status(400).send "Group's member count is out of max group member count limit (#{DEFAULT_MAX_GROUP_MEMBER_COUNT})."
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   GroupMember.getGroupCount currentUserId
@@ -124,7 +124,7 @@ router.post '/create', (req, res, next) ->
               group.id,
               GROUP_OPERATION_CREATE,
               data:
-                operatorNickname: req.app.locals.currentUserNickname
+                operatorNickname: Utility.getCurrentUserNickname req
                 targetGroupName: name
                 timestamp: timestamp
           else
@@ -149,9 +149,9 @@ router.post '/add', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
-  log 'Group %s add members %j by user %s', groupId, memberIds, req.app.locals.currentUserId
+  log 'Group %s add members %j by user %s', groupId, memberIds, Utility.getCurrentUserId req
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -198,7 +198,7 @@ router.post '/add', (req, res, next) ->
                 groupId,
                 GROUP_OPERATION_ADD,
                 data:
-                  operatorNickname: req.app.locals.currentUserNickname
+                  operatorNickname: Utility.getCurrentUserNickname req
                   targetUserIds: encodedMemberIds
                   targetUserDisplayNames: nicknames
                   timestamp: timestamp
@@ -220,8 +220,8 @@ router.post '/join', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = req.app.locals.currentUserId
-  currentUserNickname = req.app.locals.currentUserNickname
+  currentUserId = Utility.getCurrentUserId req
+  currentUserNickname = Utility.getCurrentUserNickname req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -291,7 +291,7 @@ router.post '/kick', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   # 踢出只剩自己了，群组也不解散
@@ -341,7 +341,7 @@ router.post '/kick', (req, res, next) ->
           groupId,
           GROUP_OPERATION_KICKED,
           data:
-            operatorNickname: req.app.locals.currentUserNickname
+            operatorNickname: Utility.getCurrentUserNickname req
             targetUserIds: encodedMemberIds
             targetUserDisplayNames: nicknames
             timestamp: timestamp
@@ -398,8 +398,8 @@ router.post '/quit', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = req.app.locals.currentUserId
-  currentUserNickname = req.app.locals.currentUserNickname
+  currentUserId = Utility.getCurrentUserId req
+  currentUserNickname = Utility.getCurrentUserNickname req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -558,14 +558,14 @@ router.post '/dismiss', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   sendGroupNotification currentUserId,
     groupId,
     GROUP_OPERATION_DISMISS,
     data:
-      operatorNickname: req.app.locals.currentUserNickname
+      operatorNickname: Utility.getCurrentUserNickname req
       timestamp: timestamp
   .then ->
     # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
@@ -636,7 +636,7 @@ router.post '/rename', (req, res, next) ->
   if not validator.isLength name, GROUP_NAME_MIN_LENGTH, GROUP_NAME_MAX_LENGTH
     return res.status(400).send 'Length of name invalid.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   # 更新数据库
@@ -677,7 +677,7 @@ router.post '/rename', (req, res, next) ->
         groupId,
         GROUP_OPERATION_RENAME,
         data:
-          operatorNickname: req.app.locals.currentUserNickname
+          operatorNickname: Utility.getCurrentUserNickname req
           targetGroupName: name
           timestamp: timestamp
 
@@ -694,7 +694,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
   if not validator.isLength portraitUri, PORTRAIT_URI_MIN_LENGTH, PORTRAIT_URI_MAX_LENGTH
     return res.status(400).send 'Length of portraitUri invalid.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   # 更新数据库
@@ -724,7 +724,7 @@ router.post '/set_display_name', (req, res, next) ->
   if (displayName isnt '') and not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of display name invalid.'
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
   timestamp = Date.now()
 
   GroupMember.update
@@ -749,7 +749,7 @@ router.get '/:id', (req, res, next) ->
 
   groupId = Utility.decodeIds groupId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
 
   Group.findById groupId,
     attributes: [
@@ -785,7 +785,7 @@ router.get '/:id/members', (req, res, next) ->
 
   groupId = Utility.decodeIds groupId
 
-  currentUserId = req.app.locals.currentUserId
+  currentUserId = Utility.getCurrentUserId req
 
   GroupMember.findAll
     where:

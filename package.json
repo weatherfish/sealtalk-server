@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "SealTalk App Server powered by RongCloud.",
   "scripts": {
-    "test": "node_modules/istanbul/lib/cli.js cover node_modules/jasmine/bin/jasmine.js",
+    "test": "NODE_ENV=development node_modules/istanbul/lib/cli.js cover node_modules/jasmine/bin/jasmine.js",
     "initdb": "coffee --nodejs --harmony sync.coffee"
   },
   "repository": {
