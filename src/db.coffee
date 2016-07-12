@@ -17,20 +17,31 @@ sequelize = new Sequelize Config.DB_NAME, Config.DB_USER, Config.DB_PASSWORD,
   logging: null
 
 userClassMethods =
-  getNicknames: (memberIds) ->
+  getNicknames: (userIds) ->
     User.findAll
       where:
         id:
-          $in: memberIds
+          $in: userIds
       attributes: [
         'id'
         'nickname'
       ]
     .then (users) ->
-      memberIds.map (memberId) ->
+      userIds.map (userId) ->
         _.find(users, (user) ->
-          user.id is memberId
+          user.id is userId
         ).nickname
+
+  getNickname: (userId) ->
+    User.findById userId,
+      attributes: [
+        'nickname'
+      ]
+    .then (user) ->
+      if user
+        user.nickname
+      else
+        null
 
   checkUserExists: (userId) ->
     User.count

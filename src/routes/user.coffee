@@ -7,6 +7,7 @@ rongCloud = require 'rongcloud-sdk'
 qiniu     = require 'qiniu'
 
 Config    = require '../conf'
+Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
 
@@ -221,8 +222,8 @@ router.post '/register', (req, res, next) ->
           .then (user) ->
             DataVersion.create userId: user.id, transaction: t
             .then ->
-              Utility.setAuthCookie res, user.id
-              Utility.setNicknameCookie res, nickname
+              Session.setAuthCookie res, user.id
+              Session.setNicknameToCache user.id, nickname
 
               res.send new APIResult 200, Utility.encodeResults id: user.id
       else
@@ -264,8 +265,8 @@ router.post '/login', (req, res, next) ->
       if passwordHash isnt user.passwordHash
         return res.send new APIResult 1000, null, errorMessage
 
-      Utility.setAuthCookie res, user.id
-      Utility.setNicknameCookie res, user.nickname
+      Session.setAuthCookie res, user.id
+      Session.setNicknameToCache user.id, user.nickname
 
       GroupMember.findAll
         where:
@@ -351,7 +352,7 @@ router.post '/change_password', (req, res, next) ->
   if not validator.isLength newPassword, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH
     return res.status(400).send 'Invalid new password length.'
 
-  User.findById Utility.getCurrentUserId req,
+  User.findById Session.getCurrentUserId req,
     attributes: [
       'id'
       'passwordHash'
@@ -380,7 +381,7 @@ router.post '/set_nickname', (req, res, next) ->
   if not validator.isLength nickname, NICKNAME_MIN_LENGTH, NICKNAME_MAX_LENGTH
     return res.status(400).send 'Invalid nickname length.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   User.update
@@ -400,7 +401,7 @@ router.post '/set_nickname', (req, res, next) ->
       if result.code isnt 200
         logError 'RongCloud Server API Error Code: ', result.code
 
-    Utility.setNicknameCookie res, nickname
+    Session.setNicknameToCache currentUserId, nickname
 
     Promise.all [
       DataVersion.updateUserVersion currentUserId, timestamp
@@ -420,7 +421,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
   if not validator.isLength portraitUri, PORTRAIT_URI_MIN_LENGTH, PORTRAIT_URI_MAX_LENGTH
     return res.status(400).send 'Invalid portraitUri length.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   User.update
@@ -443,7 +444,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
 router.post '/add_to_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   User.checkUserExists friendId
@@ -473,7 +474,7 @@ router.post '/add_to_blacklist', (req, res, next) ->
 router.post '/remove_from_blacklist', (req, res, next) ->
   friendId  = req.body.friendId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   # 先调用融云服务器接口
@@ -506,7 +507,7 @@ router.post '/upload_contacts', (req, res, next) ->
 
 # 获取融云 Token
 router.get '/get_token', (req, res, next) ->
-  User.findById Utility.getCurrentUserId req,
+  User.findById Session.getCurrentUserId req,
     attributes: [
       'id'
       'nickname'
@@ -544,7 +545,7 @@ router.get '/get_sms_img_code', (req, res, next) ->
 
 # 获取当前用户黑名单列表
 router.get '/blacklist', (req, res, next) ->
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Blacklist.findAll
@@ -616,7 +617,7 @@ router.get '/blacklist', (req, res, next) ->
 router.get '/groups', (req, res, next) ->
   GroupMember.findAll
     where:
-      memberId: Utility.getCurrentUserId req
+      memberId: Session.getCurrentUserId req
     attributes: [
       'role'
     ]
@@ -646,7 +647,7 @@ router.get '/sync/:version', (req, res, next) ->
   user = blacklist = friends = groups = groupMembers = null
   maxVersions = []
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
 
   DataVersion.findById currentUserId
   .then (dataVersion) ->

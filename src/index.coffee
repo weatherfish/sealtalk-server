@@ -9,6 +9,7 @@ jsonfile          = require 'jsonfile'
 path              = require 'path'
 
 Config            = require './conf'
+Session           = require './util/session'
 Utility           = require('./util/util').Utility
 APIResult         = require('./util/util').APIResult
 HTTPError         = require('./util/util').HTTPError
@@ -16,6 +17,10 @@ userRouter        = require './routes/user'         # 引用用户相关接口
 friendshipRouter  = require './routes/friendship'   # 引用好友相关接口
 groupRouter       = require './routes/group'        # 引用群组相关接口
 miscRouter        = require './routes/misc'         # 引用其他功能接口
+
+if env = process.env.NODE_ENV isnt 'development' and env isnt 'production'
+  console.log "Error: NODE_ENV must be set to 'development' or 'production'."
+  return process.exit()
 
 log       = debug 'app:log'
 logError  = debug 'app:error'
@@ -51,7 +56,7 @@ app.all '*', (req, res, next) ->
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
       return next() # 跳过验证
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
 
   # 无法获取用户 Id，即表示没有登录
   if not currentUserId

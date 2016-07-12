@@ -680,6 +680,13 @@ describe '用户接口测试', ->
             nickname: _global.filteredString
         , done
 
+    it '昵称包含需要转义的字符，转义后长度超过上限', (done) ->
+      this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
+        nickname: '<'.repeat 32
+      , 200
+      , null
+      , done
+
     it '昵称长度大于上限', (done) ->
       this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
         nickname: 'a'.repeat 33

@@ -4,6 +4,7 @@ debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
+Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
 
@@ -44,6 +45,8 @@ sendContactNotification = (userId, nickname, friendId, operation, message, times
       sourceUserNickname: nickname
       version: timestamp
 
+  log 'Sending ContactNotificationMessage:', JSON.stringify contactNotificationMessage
+
   rongCloud.message.system.publish encodedUserId, [encodedFriendId], 'RC:ContactNtf', contactNotificationMessage,
     (err, resultText) ->
       # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
@@ -62,7 +65,7 @@ router.post '/invite', (req, res, next) ->
   if not validator.isLength message, FRIEND_REQUEST_MESSAGE_MIN_LENGTH, FRIEND_REQUEST_MESSAGE_MAX_LENGTH
     return res.status(400).send 'Length of friend request message is out of limit.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   log '%s invite user -> %s', currentUserId, friendId
@@ -149,12 +152,14 @@ router.post '/invite', (req, res, next) ->
             if fd.status is FRIENDSHIP_REQUESTED
               DataVersion.updateFriendshipVersion friendId, timestamp
               .then ->
-                sendContactNotification currentUserId,
-                  Utility.getCurrentUserNickname req,
-                  friendId,
-                  CONTACT_OPERATION_REQUEST,
-                  message,
-                  timestamp
+                Session.getCurrentUserNickname currentUserId, User
+                .then (nickname) ->
+                  sendContactNotification currentUserId,
+                    nickname,
+                    friendId,
+                    CONTACT_OPERATION_REQUEST,
+                    message,
+                    timestamp
 
                 log 'Invite result: %s %s', action, resultMessage
                 res.send new APIResult 200, action: action, resultMessage
@@ -209,12 +214,14 @@ router.post '/invite', (req, res, next) ->
               DataVersion.updateFriendshipVersion friendId, timestamp
             ]
             .then ->
-              sendContactNotification currentUserId,
-                Utility.getCurrentUserNickname req,
-                friendId,
-                CONTACT_OPERATION_REQUEST,
-                message,
-                timestamp
+              Session.getCurrentUserNickname currentUserId, User
+              .then (nickname) ->
+                sendContactNotification currentUserId,
+                  nickname,
+                  friendId,
+                  CONTACT_OPERATION_REQUEST,
+                  message,
+                  timestamp
 
               log 'Invite result: %s %s', 'Sent', 'Request sent.'
               res.send new APIResult 200, action: 'Sent', 'Request sent.'
@@ -224,7 +231,7 @@ router.post '/invite', (req, res, next) ->
 router.post '/agree', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   log '%s agreed to user -> %s', currentUserId, friendId
@@ -259,12 +266,14 @@ router.post '/agree', (req, res, next) ->
           DataVersion.updateFriendshipVersion friendId, timestamp
         ]
         .then ->
-          sendContactNotification currentUserId,
-            Utility.getCurrentUserNickname req,
-            friendId,
-            CONTACT_OPERATION_ACCEPT_RESPONSE,
-            '',
-            timestamp
+          Session.getCurrentUserNickname currentUserId, User
+          .then (nickname) ->
+            sendContactNotification currentUserId,
+              nickname,
+              friendId,
+              CONTACT_OPERATION_ACCEPT_RESPONSE,
+              '',
+              timestamp
 
           res.send new APIResult 200
   .catch next
@@ -273,7 +282,7 @@ router.post '/agree', (req, res, next) ->
 router.post '/ignore', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -298,7 +307,7 @@ router.post '/ignore', (req, res, next) ->
 router.post '/delete', (req, res, next) ->
   friendId = req.body.friendId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -329,7 +338,7 @@ router.post '/set_display_name', (req, res, next) ->
   if (displayName isnt '') and not validator.isLength displayName, FRIEND_DISPLAY_NAME_MIN_LENGTH, FRIEND_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of displayName is out of limit.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Friendship.update
@@ -354,7 +363,7 @@ router.post '/set_display_name', (req, res, next) ->
 router.get '/all', (req, res, next) ->
   Friendship.findAll
     where:
-      userId: Utility.getCurrentUserId req
+      userId: Session.getCurrentUserId req
     attributes: [
       'displayName'
       'message'
@@ -382,7 +391,7 @@ router.get '/:id/profile', (req, res, next) ->
   # 只可以看好友的（好友状态为被对方同意）
   Friendship.findOne
     where:
-      userId: Utility.getCurrentUserId req
+      userId: Session.getCurrentUserId req
       friendId: userId
       status: FRIENDSHIP_AGREED
     attributes: [

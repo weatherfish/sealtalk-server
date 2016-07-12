@@ -5,6 +5,7 @@ debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
+Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
 HTTPError = require('../util/util').HTTPError
@@ -51,6 +52,8 @@ sendGroupNotification = (userId, groupId, operation, data) ->
     data: data
     message: ''
 
+  log 'Sending GroupNotificationMessage:', JSON.stringify groupNotificationMessage
+
   new Promise (resolve, reject) ->
     rongCloud.message.group.publish '__system__', encodedGroupId, 'RC:GrpNtf', groupNotificationMessage,
       (err, resultText) ->
@@ -81,7 +84,7 @@ router.post '/create', (req, res, next) ->
   if memberIds.length > DEFAULT_MAX_GROUP_MEMBER_COUNT
     return res.status(400).send "Group's member count is out of max group member count limit (#{DEFAULT_MAX_GROUP_MEMBER_COUNT})."
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   GroupMember.getGroupCount currentUserId
@@ -120,13 +123,15 @@ router.post '/create', (req, res, next) ->
           success = result.code is 200
 
           if success
-            sendGroupNotification currentUserId,
-              group.id,
-              GROUP_OPERATION_CREATE,
-              data:
-                operatorNickname: Utility.getCurrentUserNickname req
-                targetGroupName: name
-                timestamp: timestamp
+            Session.getCurrentUserNickname currentUserId, User
+            .then (nickname) ->
+              sendGroupNotification currentUserId,
+                group.id,
+                GROUP_OPERATION_CREATE,
+                data:
+                  operatorNickname: nickname
+                  targetGroupName: name
+                  timestamp: timestamp
           else
             logError 'Error: create group failed on IM server, code: %s', result.code
 
@@ -149,9 +154,9 @@ router.post '/add', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
-  log 'Group %s add members %j by user %s', groupId, memberIds, Utility.getCurrentUserId req
+  log 'Group %s add members %j by user %s', groupId, memberIds, Session.getCurrentUserId req
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -193,15 +198,16 @@ router.post '/add', (req, res, next) ->
           if success
             User.getNicknames memberIds
             .then (nicknames) ->
-
-              sendGroupNotification currentUserId,
-                groupId,
-                GROUP_OPERATION_ADD,
-                data:
-                  operatorNickname: Utility.getCurrentUserNickname req
-                  targetUserIds: encodedMemberIds
-                  targetUserDisplayNames: nicknames
-                  timestamp: timestamp
+              Session.getCurrentUserNickname currentUserId, User
+              .then (nickname) ->
+                sendGroupNotification currentUserId,
+                  groupId,
+                  GROUP_OPERATION_ADD,
+                  data:
+                    operatorNickname: nickname
+                    targetUserIds: encodedMemberIds
+                    targetUserDisplayNames: nicknames
+                    timestamp: timestamp
           else
             logError 'Error: join group failed on IM server, code: %s', result.code
 
@@ -220,8 +226,7 @@ router.post '/join', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = Utility.getCurrentUserId req
-  currentUserNickname = Utility.getCurrentUserNickname req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -263,14 +268,16 @@ router.post '/join', (req, res, next) ->
           success = result.code is 200
 
           if success
-            sendGroupNotification currentUserId,
-              groupId,
-              GROUP_OPERATION_ADD,
-              data:
-                operatorNickname: currentUserNickname
-                targetUserIds: encodedIds
-                targetUserDisplayNames: [currentUserNickname]
-                timestamp: timestamp
+            Session.getCurrentUserNickname currentUserId, User
+            .then (nickname) ->
+              sendGroupNotification currentUserId,
+                groupId,
+                GROUP_OPERATION_ADD,
+                data:
+                  operatorNickname: nickname
+                  targetUserIds: encodedIds
+                  targetUserDisplayNames: [nickname]
+                  timestamp: timestamp
           else
             logError 'Error: join group failed on IM server, code: %s', result.code
 
@@ -291,7 +298,7 @@ router.post '/kick', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   # 踢出只剩自己了，群组也不解散
@@ -336,61 +343,62 @@ router.post '/kick', (req, res, next) ->
 
       User.getNicknames memberIds
       .then (nicknames) ->
+        Session.getCurrentUserNickname currentUserId, User
+        .then (nickname) ->
+          sendGroupNotification currentUserId,
+            groupId,
+            GROUP_OPERATION_KICKED,
+            data:
+              operatorNickname: nickname
+              targetUserIds: encodedMemberIds
+              targetUserDisplayNames: nicknames
+              timestamp: timestamp
+          .then ->
+            # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
+            rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
+              if err
+                logError 'Error: quit group failed on IM server, error: %s', err
 
-        sendGroupNotification currentUserId,
-          groupId,
-          GROUP_OPERATION_KICKED,
-          data:
-            operatorNickname: Utility.getCurrentUserNickname req
-            targetUserIds: encodedMemberIds
-            targetUserDisplayNames: nicknames
-            timestamp: timestamp
-        .then ->
-          # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
-          rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
-            if err
-              logError 'Error: quit group failed on IM server, error: %s', err
+              result = JSON.parse resultText
+              success = result.code is 200
 
-            result = JSON.parse resultText
-            success = result.code is 200
+              if not success
+                logError 'Error: quit group failed on IM server, code: %s', result.code
 
-            if not success
-              logError 'Error: quit group failed on IM server, code: %s', result.code
+                return res.status(500).send 'Quit failed on IM server.'
 
-              return res.status(500).send 'Quit failed on IM server.'
+                # # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+                # GroupSync.upsert
+                #   syncMember: true
+                # ,
+                #   where:
+                #     groupId: group.id
 
-              # # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-              # GroupSync.upsert
-              #   syncMember: true
-              # ,
-              #   where:
-              #     groupId: group.id
-
-            sequelize.transaction (t) ->
-              Promise.all [
-                Group.update
-                  memberCount: group.memberCount - memberIds.length
-                  timestamp: timestamp
+              sequelize.transaction (t) ->
+                Promise.all [
+                  Group.update
+                    memberCount: group.memberCount - memberIds.length
+                    timestamp: timestamp
+                  ,
+                    where:
+                      id: groupId
+                    transaction: t
                 ,
-                  where:
-                    id: groupId
-                  transaction: t
-              ,
-                GroupMember.update
-                  isDeleted: true
-                  timestamp: timestamp
-                ,
-                  where:
-                    groupId: groupId
-                    memberId:
-                      $in: memberIds
-                  transaction: t
-              ]
-            .then ->
-              # 更新版本号（时间戳）
-              DataVersion.updateGroupMemberVersion groupId, timestamp
+                  GroupMember.update
+                    isDeleted: true
+                    timestamp: timestamp
+                  ,
+                    where:
+                      groupId: groupId
+                      memberId:
+                        $in: memberIds
+                    transaction: t
+                ]
               .then ->
-                res.send new APIResult 200
+                # 更新版本号（时间戳）
+                DataVersion.updateGroupMemberVersion groupId, timestamp
+                .then ->
+                  res.send new APIResult 200
   .catch next
 
 # 用户自行退出群组
@@ -398,8 +406,7 @@ router.post '/quit', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = Utility.getCurrentUserId req
-  currentUserNickname = Utility.getCurrentUserNickname req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   Group.getInfo groupId
@@ -423,134 +430,136 @@ router.post '/quit', (req, res, next) ->
 
       encodedMemberIds = [Utility.encodeId(currentUserId)]
 
-      sendGroupNotification currentUserId,
-        groupId,
-        GROUP_OPERATION_QUIT,
-        data:
-          operatorNickname: currentUserNickname
-          targetUserIds: encodedMemberIds
-          targetUserDisplayNames: [currentUserNickname]
-          timestamp: timestamp
-      .then ->
-        # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
-        rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
-          if err
-            logError 'Error: quit group failed on IM server, error: %s', err
+      Session.getCurrentUserNickname currentUserId, User
+      .then (nickname) ->
+        sendGroupNotification currentUserId,
+          groupId,
+          GROUP_OPERATION_QUIT,
+          data:
+            operatorNickname: nickname
+            targetUserIds: encodedMemberIds
+            targetUserDisplayNames: [nickname]
+            timestamp: timestamp
+        .then ->
+          # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
+          rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
+            if err
+              logError 'Error: quit group failed on IM server, error: %s', err
 
-          result = JSON.parse resultText
-          success = result.code is 200
+            result = JSON.parse resultText
+            success = result.code is 200
 
-          if not success
-            logError 'Error: quit group failed on IM server, code: %s', result.code
+            if not success
+              logError 'Error: quit group failed on IM server, code: %s', result.code
 
-            return res.status(500).send 'Quit failed on IM server.'
+              return res.status(500).send 'Quit failed on IM server.'
 
-            # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-            # GroupSync.upsert
-            #   syncMember: true
-            # ,
-            #   where:
-            #     groupId: group.id
+              # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+              # GroupSync.upsert
+              #   syncMember: true
+              # ,
+              #   where:
+              #     groupId: group.id
 
-          resultMessage = null
+            resultMessage = null
 
-          sequelize.transaction (t) ->
-            # 如果不是创建者，正常退出群组
-            if group.creatorId isnt currentUserId
-              resultMessage = 'Quit.'
+            sequelize.transaction (t) ->
+              # 如果不是创建者，正常退出群组
+              if group.creatorId isnt currentUserId
+                resultMessage = 'Quit.'
 
-              Promise.all [
-                Group.update
-                  memberCount: group.memberCount - 1
-                  timestamp: timestamp
+                Promise.all [
+                  Group.update
+                    memberCount: group.memberCount - 1
+                    timestamp: timestamp
+                  ,
+                    where:
+                      id: groupId
+                    transaction: t
                 ,
-                  where:
-                    id: groupId
-                  transaction: t
-              ,
-                GroupMember.update
-                  isDeleted: true
-                  timestamp: timestamp
-                ,
-                  where:
-                    groupId: groupId
-                    memberId: currentUserId
-                  transaction: t
-              ]
-            # 如果是创建者，且群成员大于一，需要将创建者移交给群组里的第二个成员
-            else if group.memberCount > 1
-              newCreatorId = null
-              # 寻找第一个不是群组创建者的人
-              groupMembers.some (groupMember) ->
-                if groupMember.memberId isnt currentUserId
-                  # 将群组创建者改为第一个不是群组创建者的人
-                  newCreatorId = groupMember.memberId
-                  return true
-                else
-                  return false
+                  GroupMember.update
+                    isDeleted: true
+                    timestamp: timestamp
+                  ,
+                    where:
+                      groupId: groupId
+                      memberId: currentUserId
+                    transaction: t
+                ]
+              # 如果是创建者，且群成员大于一，需要将创建者移交给群组里的第二个成员
+              else if group.memberCount > 1
+                newCreatorId = null
+                # 寻找第一个不是群组创建者的人
+                groupMembers.some (groupMember) ->
+                  if groupMember.memberId isnt currentUserId
+                    # 将群组创建者改为第一个不是群组创建者的人
+                    newCreatorId = groupMember.memberId
+                    return true
+                  else
+                    return false
 
-              resultMessage = 'Quit and group owner transfered.'
+                resultMessage = 'Quit and group owner transfered.'
 
-              Promise.all [
-                Group.update
-                  memberCount: group.memberCount - 1
-                  creatorId: newCreatorId
-                  timestamp: timestamp
+                Promise.all [
+                  Group.update
+                    memberCount: group.memberCount - 1
+                    creatorId: newCreatorId
+                    timestamp: timestamp
+                  ,
+                    where:
+                      id: groupId
+                    transaction: t
                 ,
-                  where:
-                    id: groupId
-                  transaction: t
-              ,
-                GroupMember.update
-                  role: GROUP_MEMBER
-                  isDeleted: true
-                  timestamp: timestamp
+                  GroupMember.update
+                    role: GROUP_MEMBER
+                    isDeleted: true
+                    timestamp: timestamp
+                  ,
+                    where:
+                      groupId: groupId
+                      memberId: currentUserId
+                    transaction: t
                 ,
-                  where:
-                    groupId: groupId
-                    memberId: currentUserId
-                  transaction: t
-              ,
-                GroupMember.update
-                  role: GROUP_CREATOR
-                  timestamp: timestamp
-                ,
-                  where:
-                    groupId: groupId
-                    memberId: newCreatorId
-                  transaction: t
-              ]
-            # 群组里没有人了，解散群组
-            else
-              resultMessage = 'Quit and group dismissed.'
+                  GroupMember.update
+                    role: GROUP_CREATOR
+                    timestamp: timestamp
+                  ,
+                    where:
+                      groupId: groupId
+                      memberId: newCreatorId
+                    transaction: t
+                ]
+              # 群组里没有人了，解散群组
+              else
+                resultMessage = 'Quit and group dismissed.'
 
-              Promise.all [
-                Group.update
-                  memberCount: 0
-                  timestamp: timestamp
+                Promise.all [
+                  Group.update
+                    memberCount: 0
+                    timestamp: timestamp
+                  ,
+                    where:
+                      id: groupId
+                    transaction: t
                 ,
-                  where:
-                    id: groupId
-                  transaction: t
-              ,
-                Group.destroy
-                  where:
-                    id: groupId
-                  transaction: t
-              ,
-                GroupMember.update
-                  isDeleted: true
-                  timestamp: timestamp
+                  Group.destroy
+                    where:
+                      id: groupId
+                    transaction: t
                 ,
-                  where:
-                    groupId: groupId
-                  transaction: t
-              ]
-          .then ->
-            # 更新版本号（时间戳）
-            DataVersion.updateGroupMemberVersion groupId, timestamp
+                  GroupMember.update
+                    isDeleted: true
+                    timestamp: timestamp
+                  ,
+                    where:
+                      groupId: groupId
+                    transaction: t
+                ]
             .then ->
-              res.send new APIResult 200, null, resultMessage
+              # 更新版本号（时间戳）
+              DataVersion.updateGroupMemberVersion groupId, timestamp
+              .then ->
+                res.send new APIResult 200, null, resultMessage
   .catch next
 
 # 创建者解散群组
@@ -558,73 +567,75 @@ router.post '/dismiss', (req, res, next) ->
   groupId = req.body.groupId
   encodedGroupId = req.body.encodedGroupId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
-  sendGroupNotification currentUserId,
-    groupId,
-    GROUP_OPERATION_DISMISS,
-    data:
-      operatorNickname: Utility.getCurrentUserNickname req
-      timestamp: timestamp
-  .then ->
-    # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
-    rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
-      if err
-        logError 'Error: dismiss group failed on IM server, error: %s', err
+  Session.getCurrentUserNickname currentUserId, User
+  .then (nickname) ->
+    sendGroupNotification currentUserId,
+      groupId,
+      GROUP_OPERATION_DISMISS,
+      data:
+        operatorNickname: nickname
+        timestamp: timestamp
+    .then ->
+      # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
+      rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
+        if err
+          logError 'Error: dismiss group failed on IM server, error: %s', err
 
-      result = JSON.parse resultText
-      success = result.code is 200
+        result = JSON.parse resultText
+        success = result.code is 200
 
-      if not success
-        logError 'Error: dismiss group failed on IM server, code: %s', result.code
+        if not success
+          logError 'Error: dismiss group failed on IM server, code: %s', result.code
 
-        return res.send new APIResult 500, null, 'Quit failed on IM server.'
+          return res.send new APIResult 500, null, 'Quit failed on IM server.'
 
-        # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
-        GroupSync.upsert
-          dismiss: true
-        ,
-          where:
-            groupId: groupId
-
-      sequelize.transaction (t) ->
-        Group.update
-          memberCount: 0
-        ,
-          where:
-            id: groupId
-            creatorId: currentUserId
-          transaction: t
-        .then ([affectedCount]) ->
-          log 'affectedCount', affectedCount
-          # 只有创建者才可以解散群组
-          if affectedCount is 0
-            throw new HTTPError 'Unknown group or not creator.', 400
-            #return res.status(400).send 'Unknown group or not creator.'
-
-          Promise.all [
-            Group.destroy
-              where:
-                id: groupId
-              transaction: t
+          # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
+          GroupSync.upsert
+            dismiss: true
           ,
-            GroupMember.update
-              isDeleted: true
-              timestamp: timestamp
+            where:
+              groupId: groupId
+
+        sequelize.transaction (t) ->
+          Group.update
+            memberCount: 0
+          ,
+            where:
+              id: groupId
+              creatorId: currentUserId
+            transaction: t
+          .then ([affectedCount]) ->
+            log 'affectedCount', affectedCount
+            # 只有创建者才可以解散群组
+            if affectedCount is 0
+              throw new HTTPError 'Unknown group or not creator.', 400
+              #return res.status(400).send 'Unknown group or not creator.'
+
+            Promise.all [
+              Group.destroy
+                where:
+                  id: groupId
+                transaction: t
             ,
-              where:
-                groupId: groupId
-              transaction: t
-          ]
-      .then ->
-        # 更新版本号（时间戳）
-        DataVersion.updateGroupMemberVersion groupId, timestamp
+              GroupMember.update
+                isDeleted: true
+                timestamp: timestamp
+              ,
+                where:
+                  groupId: groupId
+                transaction: t
+            ]
         .then ->
-          res.send new APIResult 200
-      .catch (err) ->
-        if err instanceof HTTPError
-          return res.status(err.statusCode).send err.message
+          # 更新版本号（时间戳）
+          DataVersion.updateGroupMemberVersion groupId, timestamp
+          .then ->
+            res.send new APIResult 200
+        .catch (err) ->
+          if err instanceof HTTPError
+            return res.status(err.statusCode).send err.message
   .catch next
 
 # 创建者为群组重命名
@@ -636,7 +647,7 @@ router.post '/rename', (req, res, next) ->
   if not validator.isLength name, GROUP_NAME_MIN_LENGTH, GROUP_NAME_MAX_LENGTH
     return res.status(400).send 'Length of name invalid.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   # 更新数据库
@@ -673,13 +684,15 @@ router.post '/rename', (req, res, next) ->
           where:
             groupId: groupId
 
-      sendGroupNotification currentUserId,
-        groupId,
-        GROUP_OPERATION_RENAME,
-        data:
-          operatorNickname: Utility.getCurrentUserNickname req
-          targetGroupName: name
-          timestamp: timestamp
+      Session.getCurrentUserNickname currentUserId, User
+      .then (nickname) ->
+        sendGroupNotification currentUserId,
+          groupId,
+          GROUP_OPERATION_RENAME,
+          data:
+            operatorNickname: nickname
+            targetGroupName: name
+            timestamp: timestamp
 
       res.send new APIResult 200
   .catch next
@@ -694,7 +707,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
   if not validator.isLength portraitUri, PORTRAIT_URI_MIN_LENGTH, PORTRAIT_URI_MAX_LENGTH
     return res.status(400).send 'Length of portraitUri invalid.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   # 更新数据库
@@ -724,7 +737,7 @@ router.post '/set_display_name', (req, res, next) ->
   if (displayName isnt '') and not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of display name invalid.'
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   GroupMember.update
@@ -749,7 +762,7 @@ router.get '/:id', (req, res, next) ->
 
   groupId = Utility.decodeIds groupId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
 
   Group.findById groupId,
     attributes: [
@@ -785,7 +798,7 @@ router.get '/:id/members', (req, res, next) ->
 
   groupId = Utility.decodeIds groupId
 
-  currentUserId = Utility.getCurrentUserId req
+  currentUserId = Session.getCurrentUserId req
 
   GroupMember.findAll
     where:
