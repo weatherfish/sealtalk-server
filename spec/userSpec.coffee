@@ -354,6 +354,7 @@ describe '用户接口测试', ->
         result:
           token: 'STRING'
       , (body, cookie) ->
+        _global.userCookie1 = cookie
         expect(cookie).not.toBeNull()
         expect(body.result.id).toEqual(_global.userId1)
         done()

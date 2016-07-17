@@ -392,9 +392,9 @@ router.post '/set_nickname', (req, res, next) ->
       id: currentUserId
   .then ->
     # 更新到融云服务器
-    rongCloud.user.refresh currentUserId, nickname, '', (err, resultText) ->
+    rongCloud.user.refresh currentUserId, nickname, null, (err, resultText) ->
       if err
-        logError 'RongCloud Server API Error: ', err
+        logError 'RongCloud Server API Error: ', err.message
 
       result = JSON.parse resultText
 
@@ -431,6 +431,16 @@ router.post '/set_portrait_uri', (req, res, next) ->
     where:
       id: currentUserId
   .then ->
+    # 更新到融云服务器
+    rongCloud.user.refresh currentUserId, null, portraitUri, (err, resultText) ->
+      if err
+        logError 'RongCloud Server API Error: ', err.message
+
+      result = JSON.parse resultText
+
+      if result.code isnt 200
+        logError 'RongCloud Server API Error Code: ', result.code
+
     Promise.all [
       DataVersion.updateUserVersion currentUserId, timestamp
     ,

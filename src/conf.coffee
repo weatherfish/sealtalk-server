@@ -1,8 +1,6 @@
 module.exports =
   # 认证 Cookie 名称，根据业务自行修改
   AUTH_COOKIE_NAME: 'rong_im_auth'
-  # 昵称 Cookie 名称，根据业务自行修改
-  NICKNAME_COOKIE_NAME: 'rong_im_nickname'
   # Cookie 加密密钥，请在部署时重新生成
   AUTH_COOKIE_KEY: '<-- 此处设置一个加密 Cookie 密钥 -->'
   # Cookie 加密密钥，请在部署时重新生成

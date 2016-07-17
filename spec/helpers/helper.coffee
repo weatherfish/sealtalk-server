@@ -1,5 +1,7 @@
 request = require 'supertest'
+cookie  = require 'cookie'
 app     = require '../../src'
+config  = require '../../src/conf'
 
 beforeAll ->
 
@@ -28,10 +30,23 @@ beforeAll ->
   this.groupId1 = null
   this.groupId2 = null
 
-  this.cookie = null
+  this.userCookie1 = null
+  this.userCookie2 = null
+  this.userCookie3 = null
 
   this.xssString = '<a>hello</a>'
   this.filteredString = '&lt;a&gt;hello&lt;/a&gt;'
+
+  getAuthCookieValue = (res) ->
+    cookieHeader = res.header['set-cookie']
+
+    if cookieHeader
+      if Array.isArray cookieHeader
+        cookieHeader = cookieHeader[0]
+
+      return authCookieValue = cookie.parse(cookieHeader)[config.AUTH_COOKIE_NAME]
+
+    return null
 
   this.testPOSTAPI = (path, params, statusCode, testBody, callback) ->
     _this = this
@@ -43,7 +58,8 @@ beforeAll ->
         .send params
         .end (err, res) ->
           _this.testHTTPResult err, res, statusCode, testBody
-          callback res.body, res.header['set-cookie'] if callback
+
+          callback res.body, getAuthCookieValue(res) if callback
     , 10
 
   this.testGETAPI = (path, statusCode, testBody, callback) ->
@@ -119,7 +135,7 @@ beforeAll ->
         password: this.password
       .end (err, res) ->
         if not err and res.status is 200
-          callback res.body.result.id
+          callback res.body.result.id, getAuthCookieValue(res)
         else
           console.log 'Login user failed: ', err
 

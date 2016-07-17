@@ -66,12 +66,12 @@ app.all '*', (req, res, next) ->
 
 parameterPreprocessor = (req, res, next) ->
   for prop of req.body
-    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName'
-      return res.status(400).send "Empty #{prop}."
-
     if prop.endsWith('Id') or prop.endsWith('Ids')
       req.body['encoded' + prop[0].toUpperCase() + prop.substr(1)] = req.body[prop]
       req.body[prop] = Utility.decodeIds req.body[prop]
+
+    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName'
+      return res.status(400).send "Empty #{prop}."
 
   next()
 

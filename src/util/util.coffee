@@ -1,5 +1,6 @@
 crypto  = require 'crypto'
 process = require 'process'
+debug   = require 'debug'
 xss     = require 'xss'
 Config  = require '../conf'
 N3D     = require './n3d'
@@ -117,12 +118,15 @@ class APIResult
     if @code is null or @code is undefined
       throw new Error 'Code is null.'
 
+    debug('app:result') JSON.stringify this
+
     # 空内容不需要返回，以节省流量
     delete @result if @result is null
+    # 只有开发环境才返回详细错误信息
     delete @message if @message is null or process.env.NODE_ENV isnt 'development'
 
 # 定义一个通用 HTTP 错误模型
-class HTTPError
+class HTTPError extends Error
   constructor: (@message, @statusCode) ->
 
 module.exports.Utility    = Utility

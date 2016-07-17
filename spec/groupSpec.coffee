@@ -18,12 +18,15 @@ describe '群组接口测试', ->
     _global = this
 
     # 获取 userId 信息，登录 userId1
-    _global.loginUser _global.phoneNumber3, (userId) ->
+    _global.loginUser _global.phoneNumber3, (userId, cookie) ->
       _global.userId3 = userId
-      _global.loginUser _global.phoneNumber2, (userId) ->
+      _global.userCookie3 = cookie
+      _global.loginUser _global.phoneNumber2, (userId, cookie) ->
         _global.userId2 = userId
-        _global.loginUser _global.phoneNumber1, (userId) ->
+        _global.userCookie2 = cookie
+        _global.loginUser _global.phoneNumber1, (userId, cookie) ->
           _global.userId1 = userId
+          _global.userCookie1 = cookie
           memberIds1_2 = [_global.userId1, _global.userId2]
           memberIds2_3 = [_global.userId2, _global.userId3]
           done()
