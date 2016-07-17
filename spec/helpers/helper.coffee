@@ -1,7 +1,12 @@
 request = require 'supertest'
 cookie  = require 'cookie'
+_       = require 'underscore'
 app     = require '../../src'
 config  = require '../../src/conf'
+Utility = require('../../src/util/util').Utility
+
+# 引用数据库对象和模型
+[sequelize, User] = require '../../src/db'
 
 beforeAll ->
 
@@ -110,20 +115,20 @@ beforeAll ->
     testProperty res.body, testBody
 
   this.createUser = (user, callback) ->
-    request app
-      .post '/helper/user/create'
-      .type 'json'
-      .send
-        # username: user.username
-        region: user.region
-        phone: user.phone
-        nickname: user.nickname
-        password: user.password
-      .end (err, res) ->
-        if not err and res.status is 200
-          callback res.body.result.id
-        else
-          console.log 'Create user failed: ', err
+    passwordSalt = _.random 1000, 9999
+    passwordHash = Utility.hash user.password, passwordSalt
+
+    User.create
+      #username: user.username
+      region: user.region
+      phone: user.phone
+      nickname: user.nickname
+      passwordHash: passwordHash
+      passwordSalt: passwordSalt.toString()
+    .then (user) ->
+      callback Utility.encodeId user.id
+    .catch (err) ->
+      console.log 'Create user failed: ', err
 
   this.loginUser = (phoneNumber, callback) ->
     request app

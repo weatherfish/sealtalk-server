@@ -1,6 +1,5 @@
 express   = require 'express'
 moment    = require 'moment'
-debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
@@ -26,9 +25,6 @@ FRIEND_DISPLAY_NAME_MAX_LENGTH = 32
 CONTACT_OPERATION_ACCEPT_RESPONSE = 'AcceptResponse'
 CONTACT_OPERATION_REQUEST         = 'Request'
 
-log = debug 'app:log'
-logError = debug 'app:error'
-
 # 初始化融云 Server API SDK
 rongCloud.init Config.RONGCLOUD_APP_KEY, Config.RONGCLOUD_APP_SECRET
 
@@ -45,13 +41,13 @@ sendContactNotification = (userId, nickname, friendId, operation, message, times
       sourceUserNickname: nickname
       version: timestamp
 
-  log 'Sending ContactNotificationMessage:', JSON.stringify contactNotificationMessage
+  Utility.log 'Sending ContactNotificationMessage:', JSON.stringify contactNotificationMessage
 
   rongCloud.message.system.publish encodedUserId, [encodedFriendId], 'RC:ContactNtf', contactNotificationMessage,
     (err, resultText) ->
       # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
       if err
-        logError 'Error: send contact notification failed: %j', err
+        Utility.logError 'Error: send contact notification failed: %j', err
 
 router = express.Router()
 
@@ -68,7 +64,7 @@ router.post '/invite', (req, res, next) ->
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
-  log '%s invite user -> %s', currentUserId, friendId
+  Utility.log '%s invite user -> %s', currentUserId, friendId
 
   Promise.all [
     Friendship.getInfo currentUserId, friendId
@@ -84,13 +80,13 @@ router.post '/invite', (req, res, next) ->
       ]
   ]
   .then ([fg, fd, blacklist]) ->
-    log 'Friendship requesting: %j', fg
-    log 'Friendship requested:  %j', fd
+    Utility.log 'Friendship requesting: %j', fg
+    Utility.log 'Friendship requested:  %j', fd
 
     # 被对方拉黑后，不进行任何后续操作了
     if blacklist and blacklist.status
       # Do nothing.
-      log 'Invite result: %s %s', 'None: blacklisted by friend', 'Do nothing.'
+      Utility.log 'Invite result: %s %s', 'None: blacklisted by friend', 'Do nothing.'
       return res.send new APIResult 200, action: 'None', 'Do nothing.'
 
     action = 'Added'
@@ -126,7 +122,7 @@ router.post '/invite', (req, res, next) ->
         resultMessage = 'Request sent.'
       else
         # Do nothing.
-        log 'Invite result: %s %s', 'None', 'Do nothing.'
+        Utility.log 'Invite result: %s %s', 'None', 'Do nothing.'
         return res.send new APIResult 200, action: 'None', 'Do nothing.'
 
       sequelize.transaction (t) ->
@@ -161,10 +157,10 @@ router.post '/invite', (req, res, next) ->
                     message,
                     timestamp
 
-                log 'Invite result: %s %s', action, resultMessage
+                Utility.log 'Invite result: %s %s', action, resultMessage
                 res.send new APIResult 200, action: action, resultMessage
             else
-              log 'Invite result: %s %s', action, resultMessage
+              Utility.log 'Invite result: %s %s', action, resultMessage
               res.send new APIResult 200, action: action, resultMessage
     else
       # 自己邀请自己，直接同意。可以自己是自己的好友，方便测试和当临时记事本用。
@@ -182,7 +178,7 @@ router.post '/invite', (req, res, next) ->
           DataVersion.updateFriendshipVersion currentUserId, timestamp
         ]
         .then ->
-          log 'Invite result: %s %s', action, resultMessage
+          Utility.log 'Invite result: %s %s', action, resultMessage
           res.send new APIResult 200, action: action, resultMessage
       else
         # 创建好友请求关系
@@ -223,7 +219,7 @@ router.post '/invite', (req, res, next) ->
                   message,
                   timestamp
 
-              log 'Invite result: %s %s', 'Sent', 'Request sent.'
+              Utility.log 'Invite result: %s %s', 'Sent', 'Request sent.'
               res.send new APIResult 200, action: 'Sent', 'Request sent.'
   .catch next
 
@@ -234,7 +230,7 @@ router.post '/agree', (req, res, next) ->
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
-  log '%s agreed to user -> %s', currentUserId, friendId
+  Utility.log '%s agreed to user -> %s', currentUserId, friendId
 
   sequelize.transaction (t) ->
     Friendship.update

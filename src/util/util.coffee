@@ -7,6 +7,10 @@ N3D     = require './n3d'
 
 class Utility
   @n3d = new N3D Config.N3D_KEY, 1, 4294967295
+  @log = debug 'app:log'
+  @logPath = debug 'app:path'
+  @logError = debug 'app:error'
+  @logResult = debug 'app:result'
 
   @encryptText: (text, password) ->
     salt = @random 1000, 9999
@@ -57,13 +61,15 @@ class Utility
     Utility.numberToString str
 
   # 转换结果集中的数字 Id 为加密 Id
-  @encodeResults: (obj, keys) ->
+  @encodeResults: (results, keys) ->
     # 默认转换 id
     keys = 'id' if not keys
     # 把字符串参数转换为数组
     keys = [keys] if typeof keys is 'string'
 
     isSubArrayKey = keys.length > 0 and Array.isArray keys[0]
+
+    hasNullObj = false
 
     replaceKeys = (obj) ->
       return null if obj is null
@@ -79,15 +85,23 @@ class Utility
           obj[key[0]][key[1]] = Utility.numberToString obj[key[0]][key[1]]
       else
         keys.forEach (key) ->
-          obj[key] = Utility.numberToString obj[key]
+          if obj[key]
+            obj[key] = Utility.numberToString obj[key]
+          else
+            hasNullObj = true
 
       return obj
 
-    if Array.isArray obj
-      obj.map (item) ->
+    if Array.isArray results
+      retVal = results.map (item) ->
         replaceKeys item
     else
-      replaceKeys obj
+      retVal = replaceKeys results
+
+    if hasNullObj
+      @logResult results
+
+    return retVal
 
   # 将字符串 Id 反解为数字 Id
   @stringToNumber: (str) ->
@@ -118,7 +132,7 @@ class APIResult
     if @code is null or @code is undefined
       throw new Error 'Code is null.'
 
-    debug('app:result') JSON.stringify this
+    Utility.logResult JSON.stringify this
 
     # 空内容不需要返回，以节省流量
     delete @result if @result is null

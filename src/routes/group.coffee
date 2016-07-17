@@ -1,7 +1,6 @@
 express   = require 'express'
 co        = require 'co'
 _         = require 'underscore'
-debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
@@ -36,9 +35,6 @@ GROUP_OPERATION_KICKED  = 'Kicked'
 GROUP_OPERATION_RENAME  = 'Rename'
 # GROUP_OPERATION_BULLETIN = 'Bulletin' # 暂时不需要
 
-log = debug 'app:log'
-logError = debug 'app:error'
-
 # 融云 Server API SDK
 rongCloud.init Config.RONGCLOUD_APP_KEY, Config.RONGCLOUD_APP_SECRET
 
@@ -52,14 +48,14 @@ sendGroupNotification = (userId, groupId, operation, data) ->
     data: data
     message: ''
 
-  log 'Sending GroupNotificationMessage:', JSON.stringify groupNotificationMessage
+  Utility.log 'Sending GroupNotificationMessage:', JSON.stringify groupNotificationMessage
 
   new Promise (resolve, reject) ->
     rongCloud.message.group.publish '__system__', encodedGroupId, 'RC:GrpNtf', groupNotificationMessage,
       (err, resultText) ->
         # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
         if err
-          logError 'Error: send group notification failed: %s', err
+          Utility.logError 'Error: send group notification failed: %s', err
           reject err
 
         resolve resultText
@@ -74,8 +70,8 @@ router.post '/create', (req, res, next) ->
   memberIds = req.body.memberIds
   encodedMemberIds = req.body.encodedMemberIds
 
-  log 'memberIds', memberIds
-  log 'encodedMemberIds', encodedMemberIds
+  Utility.log 'memberIds', memberIds
+  Utility.log 'encodedMemberIds', encodedMemberIds
 
   if not validator.isLength name, GROUP_NAME_MIN_LENGTH, GROUP_NAME_MAX_LENGTH
     return res.status(400).send 'Length of group name is out of limit.'
@@ -105,7 +101,7 @@ router.post '/create', (req, res, next) ->
         ,
           transaction: t
 
-        log 'Group %s created by %s', group.id, currentUserId
+        Utility.log 'Group %s created by %s', group.id, currentUserId
           # 创建群组成员关系
         yield GroupMember.bulkUpsert group.id, memberIds, timestamp, t, currentUserId
 
@@ -117,7 +113,7 @@ router.post '/create', (req, res, next) ->
         # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
         rongCloud.group.create encodedMemberIds, Utility.encodeId(group.id), name, (err, resultText) ->
           if err
-            logError 'Error: create group failed on IM server, error: %s', err
+            Utility.logError 'Error: create group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
@@ -133,7 +129,7 @@ router.post '/create', (req, res, next) ->
                   targetGroupName: name
                   timestamp: timestamp
           else
-            logError 'Error: create group failed on IM server, code: %s', result.code
+            Utility.logError 'Error: create group failed on IM server, code: %s', result.code
 
             # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
             GroupSync.upsert
@@ -154,7 +150,7 @@ router.post '/add', (req, res, next) ->
   encodedGroupId = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
-  log 'Group %s add members %j by user %s', groupId, memberIds, Session.getCurrentUserId req
+  Utility.log 'Group %s add members %j by user %s', groupId, memberIds, Session.getCurrentUserId req
 
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
@@ -190,7 +186,7 @@ router.post '/add', (req, res, next) ->
         # 调用融云接口加入群组，如果创建失败，后续用计划任务同步
         rongCloud.group.join encodedMemberIds, encodedGroupId, group.name, (err, resultText) ->
           if err
-            logError 'Error: join group failed on IM server, error: %s', err
+            Utility.logError 'Error: join group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
@@ -209,7 +205,7 @@ router.post '/add', (req, res, next) ->
                     targetUserDisplayNames: nicknames
                     timestamp: timestamp
           else
-            logError 'Error: join group failed on IM server, code: %s', result.code
+            Utility.logError 'Error: join group failed on IM server, code: %s', result.code
 
             # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
             GroupSync.upsert
@@ -262,7 +258,7 @@ router.post '/join', (req, res, next) ->
         # 调用融云接口加入群组，如果创建失败，后续用计划任务同步
         rongCloud.group.join encodedIds, encodedGroupId, group.name, (err, resultText) ->
           if err
-            logError 'Error: join group failed on IM server, error: %s', err
+            Utility.logError 'Error: join group failed on IM server, error: %s', err
 
           result = JSON.parse resultText
           success = result.code is 200
@@ -279,7 +275,7 @@ router.post '/join', (req, res, next) ->
                   targetUserDisplayNames: [nickname]
                   timestamp: timestamp
           else
-            logError 'Error: join group failed on IM server, code: %s', result.code
+            Utility.logError 'Error: join group failed on IM server, code: %s', result.code
 
             # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
             GroupSync.upsert
@@ -357,13 +353,13 @@ router.post '/kick', (req, res, next) ->
             # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
             rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
               if err
-                logError 'Error: quit group failed on IM server, error: %s', err
+                Utility.logError 'Error: quit group failed on IM server, error: %s', err
 
               result = JSON.parse resultText
               success = result.code is 200
 
               if not success
-                logError 'Error: quit group failed on IM server, code: %s', result.code
+                Utility.logError 'Error: quit group failed on IM server, code: %s', result.code
 
                 return res.status(500).send 'Quit failed on IM server.'
 
@@ -444,13 +440,13 @@ router.post '/quit', (req, res, next) ->
           # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
           rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
             if err
-              logError 'Error: quit group failed on IM server, error: %s', err
+              Utility.logError 'Error: quit group failed on IM server, error: %s', err
 
             result = JSON.parse resultText
             success = result.code is 200
 
             if not success
-              logError 'Error: quit group failed on IM server, code: %s', result.code
+              Utility.logError 'Error: quit group failed on IM server, code: %s', result.code
 
               return res.status(500).send 'Quit failed on IM server.'
 
@@ -582,13 +578,13 @@ router.post '/dismiss', (req, res, next) ->
       # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
       rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
         if err
-          logError 'Error: dismiss group failed on IM server, error: %s', err
+          Utility.logError 'Error: dismiss group failed on IM server, error: %s', err
 
         result = JSON.parse resultText
         success = result.code is 200
 
         if not success
-          logError 'Error: dismiss group failed on IM server, code: %s', result.code
+          Utility.logError 'Error: dismiss group failed on IM server, code: %s', result.code
 
           return res.send new APIResult 500, null, 'Quit failed on IM server.'
 
@@ -608,7 +604,7 @@ router.post '/dismiss', (req, res, next) ->
               creatorId: currentUserId
             transaction: t
           .then ([affectedCount]) ->
-            log 'affectedCount', affectedCount
+            Utility.log 'affectedCount', affectedCount
             # 只有创建者才可以解散群组
             if affectedCount is 0
               throw new HTTPError 'Unknown group or not creator.', 400
@@ -669,13 +665,13 @@ router.post '/rename', (req, res, next) ->
       # 调用融云服务器刷新群组信息
       rongCloud.group.refresh encodedGroupId, name, (err, resultText) ->
         if err
-          logError 'Error: refresh group info failed on IM server, error: %s', err
+          Utility.logError 'Error: refresh group info failed on IM server, error: %s', err
 
         result = JSON.parse resultText
         success = result.code is 200
 
         if not success
-          logError 'Error: refresh group info failed on IM server, code: %s', result.code
+          Utility.logError 'Error: refresh group info failed on IM server, code: %s', result.code
 
         # 在数据库中标记成功失败状态，如果失败，后续计划任务同步
         GroupSync.upsert

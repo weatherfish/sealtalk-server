@@ -2,7 +2,6 @@ express   = require 'express'
 co        = require 'co'
 _         = require 'underscore'
 moment    = require 'moment'
-debug     = require 'debug'
 rongCloud = require 'rongcloud-sdk'
 qiniu     = require 'qiniu'
 
@@ -24,9 +23,6 @@ PORTRAIT_URI_MAX_LENGTH = 256
 
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 20
-
-log = debug 'app:log'
-logError = debug 'app:error'
 
 # 初始化融云 Server API SDK
 rongCloud.init Config.RONGCLOUD_APP_KEY, Config.RONGCLOUD_APP_SECRET
@@ -281,19 +277,19 @@ router.post '/login', (req, res, next) ->
             'name'
           ]
       .then (groups) ->
-        log 'Sync groups: %j', groups
+        Utility.log 'Sync groups: %j', groups
 
         groupIdNamePairs = {}
         groups.forEach (group) ->
           groupIdNamePairs[Utility.encodeId(group.group.id)] = group.group.name
 
-        log 'Sync groups: %j', groupIdNamePairs
+        Utility.log 'Sync groups: %j', groupIdNamePairs
 
         rongCloud.group.sync Utility.encodeId(user.id), groupIdNamePairs, (err, resultText) ->
           if err
-            logError 'Error sync user\'s group list failed: %s', err
+            Utility.logError 'Error sync user\'s group list failed: %s', err
       .catch (error) ->
-        logError 'Sync groups error: ', error
+        Utility.logError 'Sync groups error: ', error
 
       if user.rongCloudToken is ''
         if req.app.get('env') is 'development'
@@ -394,12 +390,12 @@ router.post '/set_nickname', (req, res, next) ->
     # 更新到融云服务器
     rongCloud.user.refresh currentUserId, nickname, null, (err, resultText) ->
       if err
-        logError 'RongCloud Server API Error: ', err.message
+        Utility.logError 'RongCloud Server API Error: ', err.message
 
       result = JSON.parse resultText
 
       if result.code isnt 200
-        logError 'RongCloud Server API Error Code: ', result.code
+        Utility.logError 'RongCloud Server API Error Code: ', result.code
 
     Session.setNicknameToCache currentUserId, nickname
 
@@ -434,12 +430,12 @@ router.post '/set_portrait_uri', (req, res, next) ->
     # 更新到融云服务器
     rongCloud.user.refresh currentUserId, null, portraitUri, (err, resultText) ->
       if err
-        logError 'RongCloud Server API Error: ', err.message
+        Utility.logError 'RongCloud Server API Error: ', err.message
 
       result = JSON.parse resultText
 
       if result.code isnt 200
-        logError 'RongCloud Server API Error Code: ', result.code
+        Utility.logError 'RongCloud Server API Error Code: ', result.code
 
     Promise.all [
       DataVersion.updateUserVersion currentUserId, timestamp
@@ -576,7 +572,7 @@ router.get '/blacklist', (req, res, next) ->
     rongCloud.user.blacklist.query Utility.encodeId(currentUserId), (err, resultText) ->
       if err
         # 如果失败直接忽略
-        logError 'Error: request server blacklist failed: %s', err
+        Utility.logError 'Error: request server blacklist failed: %s', err
       else
         result = JSON.parse(resultText)
 
@@ -596,7 +592,7 @@ router.get '/blacklist', (req, res, next) ->
                 timestamp: timestamp
               .then ->
                 # 不需要处理成功和失败回调
-                log 'Sync: fix user blacklist, add %s -> %s from db.', currentUserId, userId
+                Utility.log 'Sync: fix user blacklist, add %s -> %s from db.', currentUserId, userId
 
                 # 更新版本号（时间戳）
                 DataVersion.updateBlacklistVersion currentUserId, timestamp
@@ -615,7 +611,7 @@ router.get '/blacklist', (req, res, next) ->
                   userId: currentUserId
                   friendId: userId
               .then ->
-                log 'Sync: fix user blacklist, remove %s -> %s from db.', currentUserId, userId
+                Utility.log 'Sync: fix user blacklist, remove %s -> %s from db.', currentUserId, userId
 
                 # 更新版本号（时间戳）
                 DataVersion.updateBlacklistVersion currentUserId, timestamp
@@ -750,7 +746,7 @@ router.get '/sync/:version', (req, res, next) ->
       maxVersions.push(_.max(groups, (item) -> item.group.timestamp).group.timestamp) if groups
       maxVersions.push(_.max(groupMembers, (item) -> item.timestamp).timestamp) if groupMembers
 
-      log 'maxVersions: %j', maxVersions
+      Utility.log 'maxVersions: %j', maxVersions
 
       res.send new APIResult 200,
         version: _.max(maxVersions) # 最大的版本号
