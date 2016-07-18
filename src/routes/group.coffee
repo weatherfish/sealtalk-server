@@ -803,6 +803,7 @@ router.get '/:id/members', (req, res, next) ->
       'displayName'
       'role'
       'createdAt'
+      'updatedAt'
     ]
     include:
       model: User
