@@ -309,7 +309,7 @@ router.post '/logout', (req, res) ->
 
 # 通过手机验证码设置新密码
 router.post '/reset_password', (req, res, next) ->
-  password          = req.body.password
+  password            = req.body.password
   verification_token  = req.body.verification_token
 
   if (password.indexOf(' ') != -1)
@@ -388,7 +388,7 @@ router.post '/set_nickname', (req, res, next) ->
       id: currentUserId
   .then ->
     # 更新到融云服务器
-    rongCloud.user.refresh currentUserId, nickname, null, (err, resultText) ->
+    rongCloud.user.refresh Utility.encodeId(currentUserId), nickname, null, (err, resultText) ->
       if err
         Utility.logError 'RongCloud Server API Error: ', err.message
 
@@ -428,7 +428,7 @@ router.post '/set_portrait_uri', (req, res, next) ->
       id: currentUserId
   .then ->
     # 更新到融云服务器
-    rongCloud.user.refresh currentUserId, null, portraitUri, (err, resultText) ->
+    rongCloud.user.refresh Utility.encodeId(currentUserId), null, portraitUri, (err, resultText) ->
       if err
         Utility.logError 'RongCloud Server API Error: ', err.message
 
@@ -448,7 +448,8 @@ router.post '/set_portrait_uri', (req, res, next) ->
 
 # 将好友加入黑名单
 router.post '/add_to_blacklist', (req, res, next) ->
-  friendId  = req.body.friendId
+  friendId = req.body.friendId
+  encodedFriendId = req.body.encodedFriendId
 
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
@@ -457,7 +458,7 @@ router.post '/add_to_blacklist', (req, res, next) ->
   .then (result) ->
     if result
       # 先调用融云服务器接口
-      rongCloud.user.blacklist.add Utility.encodeId(currentUserId), Utility.encodeId(friendId), (err, resultText) ->
+      rongCloud.user.blacklist.add Utility.encodeId(currentUserId), encodedFriendId, (err, resultText) ->
         # 如果失败直接返回，不保存到数据库
         if err
           next err
@@ -478,13 +479,14 @@ router.post '/add_to_blacklist', (req, res, next) ->
 
 # 将好友从黑名单中移除
 router.post '/remove_from_blacklist', (req, res, next) ->
-  friendId  = req.body.friendId
+  friendId = req.body.friendId
+  encodedFriendId = req.body.encodedFriendId
 
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
   # 先调用融云服务器接口
-  rongCloud.user.blacklist.remove Utility.encodeId(currentUserId), Utility.encodeId(friendId), (err, resultText) ->
+  rongCloud.user.blacklist.remove Utility.encodeId(currentUserId), encodedFriendId, (err, resultText) ->
     # 如果失败直接返回，不保存到数据库
     if err
       next err
@@ -577,12 +579,22 @@ router.get '/blacklist', (req, res, next) ->
         result = JSON.parse(resultText)
 
         if result.code is 200
+          hasDirtyData = false
           serverBlacklistUserIds = result.users
-          dbBlacklistUserIds = dbBlacklist.map (blacklist) -> blacklist.user.id
+          dbBlacklistUserIds = dbBlacklist.map (blacklist) ->
+            if blacklist.user
+              blacklist.user.id
+            else
+              hasDirtyData = true
+              null
+
+          # 如果有脏数据，输出到 Log 中
+          if hasDirtyData
+            Utility.log 'Dirty blacklist data %j', dbBlacklist
 
           # 检查和修复数据库中黑名单数据的缺失
-          serverBlacklistUserIds.forEach (userId) ->
-            userId = Utility.decodeIds userId
+          serverBlacklistUserIds.forEach (encodedUserId) ->
+            userId = Utility.decodeIds encodedUserId
             if dbBlacklistUserIds.indexOf(userId) is -1
               # 数据库中缺失，添加上这个数据
               Blacklist.create
@@ -601,7 +613,7 @@ router.get '/blacklist', (req, res, next) ->
 
           # 检查和修复数据库中黑名单脏数据（多余）
           dbBlacklistUserIds.forEach (userId) ->
-            if serverBlacklistUserIds.indexOf(Utility.encodeId(userId)) is -1
+            if userId and serverBlacklistUserIds.indexOf(Utility.encodeId(userId)) is -1
               # 数据库中的脏数据，删除掉
               Blacklist.update
                 status: false

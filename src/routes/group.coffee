@@ -147,7 +147,7 @@ router.post '/create', (req, res, next) ->
 router.post '/add', (req, res, next) ->
   groupId   = req.body.groupId
   memberIds = req.body.memberIds
-  encodedGroupId = req.body.encodedGroupId
+  encodedGroupId   = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
   Utility.log 'Group %s add members %j by user %s', groupId, memberIds, Session.getCurrentUserId req
@@ -289,9 +289,9 @@ router.post '/join', (req, res, next) ->
 
 # 创建者将用户踢出群组
 router.post '/kick', (req, res, next) ->
-  groupId  = req.body.groupId
+  groupId   = req.body.groupId
   memberIds = req.body.memberIds
-  encodedGroupId = req.body.encodedGroupId
+  encodedGroupId   = req.body.encodedGroupId
   encodedMemberIds = req.body.encodedMemberIds
 
   currentUserId = Session.getCurrentUserId req
