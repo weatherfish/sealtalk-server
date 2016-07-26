@@ -41,6 +41,7 @@ authentication = (req, res, next) ->
     '/user/check_username_available'
     '/user/check_phone_available'
     '/misc/latest_update'
+    '/misc/client_version'
     '/misc/demo_square'
   ]
     if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)

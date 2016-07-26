@@ -133,7 +133,11 @@ router.post '/verify_code', (req, res, next) ->
     else
       rongCloud.sms.verifyCode verification.sessionId, code, (err, resultText) ->
         if err
-          return next err
+          # Hack for invalid 430 HTTP status code to avoid unuseful error log.
+          if err.message is 'Unsuccessful HTTP response'
+            return res.status(err.statusCode).send err.message
+          else
+            return next err
 
         result = JSON.parse resultText
 

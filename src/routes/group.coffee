@@ -42,6 +42,8 @@ sendGroupNotification = (userId, groupId, operation, data) ->
   encodedUserId = Utility.encodeId userId
   encodedGroupId = Utility.encodeId groupId
 
+  data.data = JSON.parse JSON.stringify data
+
   groupNotificationMessage =
     operatorUserId: encodedUserId
     operation: operation
@@ -124,10 +126,9 @@ router.post '/create', (req, res, next) ->
               sendGroupNotification currentUserId,
                 group.id,
                 GROUP_OPERATION_CREATE,
-                data:
-                  operatorNickname: nickname
-                  targetGroupName: name
-                  timestamp: timestamp
+                operatorNickname: nickname
+                targetGroupName: name
+                timestamp: timestamp
           else
             Utility.logError 'Error: create group failed on IM server, code: %s', result.code
 
@@ -199,11 +200,10 @@ router.post '/add', (req, res, next) ->
                 sendGroupNotification currentUserId,
                   groupId,
                   GROUP_OPERATION_ADD,
-                  data:
-                    operatorNickname: nickname
-                    targetUserIds: encodedMemberIds
-                    targetUserDisplayNames: nicknames
-                    timestamp: timestamp
+                  operatorNickname: nickname
+                  targetUserIds: encodedMemberIds
+                  targetUserDisplayNames: nicknames
+                  timestamp: timestamp
           else
             Utility.logError 'Error: join group failed on IM server, code: %s', result.code
 
@@ -269,11 +269,10 @@ router.post '/join', (req, res, next) ->
               sendGroupNotification currentUserId,
                 groupId,
                 GROUP_OPERATION_ADD,
-                data:
-                  operatorNickname: nickname
-                  targetUserIds: encodedIds
-                  targetUserDisplayNames: [nickname]
-                  timestamp: timestamp
+                operatorNickname: nickname
+                targetUserIds: encodedIds
+                targetUserDisplayNames: [nickname]
+                timestamp: timestamp
           else
             Utility.logError 'Error: join group failed on IM server, code: %s', result.code
 
@@ -344,11 +343,10 @@ router.post '/kick', (req, res, next) ->
           sendGroupNotification currentUserId,
             groupId,
             GROUP_OPERATION_KICKED,
-            data:
-              operatorNickname: nickname
-              targetUserIds: encodedMemberIds
-              targetUserDisplayNames: nicknames
-              timestamp: timestamp
+            operatorNickname: nickname
+            targetUserIds: encodedMemberIds
+            targetUserDisplayNames: nicknames
+            timestamp: timestamp
           .then ->
             # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
             rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
@@ -431,11 +429,10 @@ router.post '/quit', (req, res, next) ->
         sendGroupNotification currentUserId,
           groupId,
           GROUP_OPERATION_QUIT,
-          data:
-            operatorNickname: nickname
-            targetUserIds: encodedMemberIds
-            targetUserDisplayNames: [nickname]
-            timestamp: timestamp
+          operatorNickname: nickname
+          targetUserIds: encodedMemberIds
+          targetUserDisplayNames: [nickname]
+          timestamp: timestamp
         .then ->
           # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
           rongCloud.group.quit encodedMemberIds, encodedGroupId, (err, resultText) ->
@@ -571,9 +568,8 @@ router.post '/dismiss', (req, res, next) ->
     sendGroupNotification currentUserId,
       groupId,
       GROUP_OPERATION_DISMISS,
-      data:
-        operatorNickname: nickname
-        timestamp: timestamp
+      operatorNickname: nickname
+      timestamp: timestamp
     .then ->
       # 调用融云接口创建群组，如果创建失败，后续用计划任务同步
       rongCloud.group.dismiss Utility.encodeId(currentUserId), encodedGroupId, (err, resultText) ->
@@ -685,10 +681,9 @@ router.post '/rename', (req, res, next) ->
         sendGroupNotification currentUserId,
           groupId,
           GROUP_OPERATION_RENAME,
-          data:
-            operatorNickname: nickname
-            targetGroupName: name
-            timestamp: timestamp
+          operatorNickname: nickname
+          targetGroupName: name
+          timestamp: timestamp
 
       res.send new APIResult 200
   .catch next

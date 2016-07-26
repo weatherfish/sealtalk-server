@@ -25,11 +25,16 @@ router.get '/latest_update', (req, res, next) ->
     if semver.gte(clientVersion, squirrelConfig.version)
       res.status(204).end()
     else
-      res.send
-        url: squirrelConfig.url
-        name:squirrelConfig.name
-        notes:squirrelConfig.notes
-        pub_date:squirrelConfig.pub_date
+      res.send squirrelConfig
+  catch err
+    next err
+
+# 获取最新移动客户端版本信息
+router.get '/client_version', (req, res, next) ->
+  try
+    clientVersionInfo = jsonfile.readFileSync path.join __dirname, '../client_version.json'
+
+    res.send clientVersionInfo
   catch err
     next err
 
