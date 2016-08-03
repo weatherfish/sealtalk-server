@@ -53,12 +53,20 @@ beforeAll ->
 
     return null
 
-  this.testPOSTAPI = (path, params, statusCode, testBody, callback) ->
+  this.testPOSTAPI = (path, cookieValue, params, statusCode, testBody, callback) ->
     _this = this
+
+    if arguments.length is 5
+      callback = testBody
+      testBody = statusCode
+      statusCode = params
+      params = cookieValue
+      cookieValue = ''
 
     setTimeout ->
       request app
         .post path
+        .set 'Cookie', config.AUTH_COOKIE_NAME + '=' + cookieValue
         .type 'json'
         .send params
         .end (err, res) ->
@@ -67,12 +75,19 @@ beforeAll ->
           callback res.body, getAuthCookieValue(res) if callback
     , 10
 
-  this.testGETAPI = (path, statusCode, testBody, callback) ->
+  this.testGETAPI = (path, cookieValue, statusCode, testBody, callback) ->
     _this = this
+
+    if arguments.length is 4
+      callback = testBody
+      testBody = statusCode
+      statusCode = cookieValue
+      cookieValue = ''
 
     setTimeout ->
       request app
         .get path
+        .set 'Cookie', config.AUTH_COOKIE_NAME + '=' + cookieValue
         .end (err, res) ->
           _this.testHTTPResult err, res, statusCode, testBody
           callback res.body if callback
@@ -143,16 +158,3 @@ beforeAll ->
           callback res.body.result.id, getAuthCookieValue(res)
         else
           console.log 'Login user failed: ', err
-
-  this.createGroup = (group, callback) ->
-    request app
-      .post "/group/create?userId=#{group.creatorId}"
-      .type 'json'
-      .send
-        name: group.name
-        memberIds: group.memberIds
-      .end (err, res) ->
-        if not err and res.status is 200
-          callback res.body.result.id
-        else
-          console.log 'Create group failed: ', err

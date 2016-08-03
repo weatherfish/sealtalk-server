@@ -62,9 +62,9 @@ getToken = (userId, nickname, portraitUri) ->
 router.post '/send_code', (req, res, next) ->
   region = req.body.region
   phone  = req.body.phone
-  # 如果在融云开发者后台开启图形验证码，需要校验 verify_id 和 verify_code。
-  # verify_id   = req.body.verify_id
-  # verify_code = req.body.verify_code
+  # 如果在融云开发者后台开启图形验证码，需要校验 verifyId 和 verifyCode。
+  # verifyId   = req.body.verify_id
+  # verifyCode = req.body.verify_code
 
   # 如果不是合法的手机号，直接返回，省去查询数据库的步骤
   if not validator.isMobilePhone phone.toString(), regionMap[region]
@@ -134,8 +134,10 @@ router.post '/verify_code', (req, res, next) ->
       rongCloud.sms.verifyCode verification.sessionId, code, (err, resultText) ->
         if err
           # Hack for invalid 430 HTTP status code to avoid unuseful error log.
-          if err.message is 'Unsuccessful HTTP response'
-            return res.status(err.statusCode).send err.message
+          errorMessage = err.message
+
+          if errorMessage is 'Unsuccessful HTTP response' or errorMessage is 'Too Many Requests'
+            return res.status(err.statusCode).send errorMessage
           else
             return next err
 
@@ -184,7 +186,7 @@ router.post '/register', (req, res, next) ->
   nickname            = Utility.xss req.body.nickname, NICKNAME_MAX_LENGTH
   # username          = req.body.username
   password            = req.body.password
-  verification_token  = req.body.verification_token
+  verificationToken   = req.body.verification_token
 
   if password.indexOf(' ') > 0
     return res.status(400).send 'Password must have no space.'
@@ -192,10 +194,10 @@ router.post '/register', (req, res, next) ->
     return res.status(400).send 'Length of nickname invalid.'
   if not validator.isLength password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH
     return res.status(400).send 'Length of password invalid.'
-  if not validator.isUUID verification_token
+  if not validator.isUUID verificationToken
     return res.status(400).send 'Invalid verification_token.'
 
-  VerificationCode.getByToken verification_token
+  VerificationCode.getByToken verificationToken
   .then (verification) ->
     if not verification
       return res.status(404).send 'Unknown verification_token.'
@@ -314,16 +316,16 @@ router.post '/logout', (req, res) ->
 # 通过手机验证码设置新密码
 router.post '/reset_password', (req, res, next) ->
   password            = req.body.password
-  verification_token  = req.body.verification_token
+  verificationToken   = req.body.verification_token
 
   if (password.indexOf(' ') != -1)
     return res.status(400).send 'Password must have no space.'
   if not validator.isLength password, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH
     return res.status(400).send 'Length of password invalid.'
-  if not validator.isUUID verification_token
+  if not validator.isUUID verificationToken
     return res.status(400).send 'Invalid verification_token.'
 
-  VerificationCode.getByToken verification_token
+  VerificationCode.getByToken verificationToken
   .then (verification) ->
     if not verification
       return res.status(404).send 'Unknown verification_token.'
@@ -563,6 +565,8 @@ router.get '/blacklist', (req, res, next) ->
   Blacklist.findAll
     where:
       userId: currentUserId
+      friendId:
+        $ne: 0
       status: true
     attributes: []
     include:

@@ -10,9 +10,12 @@ class Session
     maxAge: 1000 * 60 * 60
 
   @getCurrentUserId: (req) ->
-    # 开发环境可以通过 URL 参数 ?userId=123 设置当前登录的 userId
-    if process.env.NODE_ENV is 'development' and req.query.userId
-      return Utility.decodeIds req.query.userId
+    # 开发环境可以通过 URL 参数 ?userId=123 或者 encodeUserId=X8dmd7d 设置当前登录的 userId
+    # if process.env.NODE_ENV is 'development'
+    #   if req.query.userId
+    #     return req.query.userId
+    #   else if req.query.encodeUserId
+    #     return Utility.decodeIds req.query.encodeUserId
 
     cookie = req.cookies[Config.AUTH_COOKIE_NAME]
 

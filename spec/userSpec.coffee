@@ -176,9 +176,10 @@ describe '用户接口测试', ->
         code: 200
         result:
           id: 'STRING'
-      , (body) ->
+      , (body, cookie) ->
         _global.userId1 = body.result.id
-        _global.testGETAPI "/user/#{_global.userId1}?userId=#{_global.userId1}"
+        _global.userCookie1 = cookie
+        _global.testGETAPI "/user/#{_global.userId1}", _global.userCookie1
         , 200
         ,
           code: 200
@@ -425,7 +426,7 @@ describe '用户接口测试', ->
   xdescribe '获取融云 Token', ->
 
     it '成功', (done) ->
-      this.testGETAPI "/user/get_token?userId=#{_global.userId1}"
+      this.testGETAPI "/user/get_token", _global.userCookie1
       , 200
       ,
         code: 200
@@ -448,7 +449,7 @@ describe '用户接口测试', ->
         done()
 
     it '成功', (done) ->
-      this.testGETAPI "/user/#{_global.userId2}?userId=#{_global.userId1}"
+      this.testGETAPI "/user/#{_global.userId2}", _global.userCookie1
       , 200
       ,
         code: 200
@@ -459,7 +460,7 @@ describe '用户接口测试', ->
       , done
 
     it '用户 Id 不存在', (done) ->
-      this.testGETAPI "/user/5Vg2XCh9f?userId=#{_global.userId1}"
+      this.testGETAPI "/user/5Vg2XCh9f", _global.userCookie1
       , 404
       , null
       , done
@@ -467,7 +468,7 @@ describe '用户接口测试', ->
   describe '批量获取用户基本信息', ->
 
     it '成功，数组', (done) ->
-      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=#{_global.userId2}&userId=#{_global.userId1}"
+      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=#{_global.userId2}", _global.userCookie1
       , 200
       , code: 200
       , (body) ->
@@ -482,7 +483,7 @@ describe '用户接口测试', ->
         done()
 
     it '成功，单一元素', (done) ->
-      this.testGETAPI "/user/batch?id=#{_global.userId1}&userId=#{_global.userId1}"
+      this.testGETAPI "/user/batch?id=#{_global.userId1}", _global.userCookie1
       , 200
       , code: 200
       , (body) ->
@@ -494,7 +495,7 @@ describe '用户接口测试', ->
         done()
 
     it 'UserId 不存在', (done) ->
-      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=5Vg2XCh9f&userId=#{_global.userId1}"
+      this.testGETAPI "/user/batch?id=#{_global.userId1}&id=5Vg2XCh9f", _global.userCookie1
       , 200
       , code: 200
       , (body) ->
@@ -508,7 +509,7 @@ describe '用户接口测试', ->
   describe '根据手机号查找用户信息', ->
 
     it '成功', (done) ->
-      this.testGETAPI "/user/find/86/#{_global.phoneNumber1}?userId=#{_global.userId1}"
+      this.testGETAPI "/user/find/86/#{_global.phoneNumber1}", _global.userCookie1
       , 200
       ,
         code: 200
@@ -519,13 +520,13 @@ describe '用户接口测试', ->
       , done
 
     it '用户不存在', (done) ->
-      this.testGETAPI "/user/find/86/13912345678?userId=#{_global.userId1}"
+      this.testGETAPI "/user/find/86/13912345678", _global.userCookie1
       , 404
       , null
       , done
 
     it '区号+手机号不合法', (done) ->
-      this.testGETAPI "/user/find/86/1391234567?userId=#{_global.userId1}"
+      this.testGETAPI "/user/find/86/1391234567", _global.userCookie1
       , 400
       , null
       , done
@@ -533,7 +534,7 @@ describe '用户接口测试', ->
   describe '获取当前用户所属群组', ->
 
     it '成功', (done) ->
-      this.testGETAPI "/user/groups?userId=#{_global.userId1}"
+      this.testGETAPI "/user/groups", _global.userCookie1
       , 200
       , null
       , (body) ->
@@ -611,7 +612,7 @@ describe '用户接口测试', ->
 
     #成功修改密码之后，群组接口测试将全部失败，因为密码错误登录失败
     it '成功', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: _global.password
         oldPassword: _global.passwordNew
       , 200
@@ -619,7 +620,7 @@ describe '用户接口测试', ->
       , done
 
     it '旧密码为空', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: _global.passwordNew
         oldPassword: ''
       , 400
@@ -627,7 +628,7 @@ describe '用户接口测试', ->
       , done
 
     it '新密码为空', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: ''
         oldPassword: _global.password
       , 400
@@ -635,7 +636,7 @@ describe '用户接口测试', ->
       , done
 
     it '新密码不能包含空格', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: 'qwe qwe'
         oldPassword: _global.password
       , 400
@@ -643,7 +644,7 @@ describe '用户接口测试', ->
       , done
 
     it '新密码长度限制-少于6位', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: '123'
         oldPassword: _global.password
       , 400
@@ -651,7 +652,7 @@ describe '用户接口测试', ->
       , done
 
     it '新密码长度限制-多于20位', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: '01234567890qwe0123456789'
         oldPassword: _global.password
       , 400
@@ -659,7 +660,7 @@ describe '用户接口测试', ->
       , done
 
     it '密码错误', (done) ->
-      this.testPOSTAPI "/user/change_password?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/change_password", _global.userCookie1,
         newPassword: _global.passwordNew
         oldPassword: '123123qwe'
       , 200
@@ -668,12 +669,12 @@ describe '用户接口测试', ->
 
   describe '修改昵称', ->
     it '成功', (done) ->
-      this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
         nickname: _global.xssString
       , 200
       , code: 200
       , ->
-        _global.testGETAPI "/user/#{_global.userId1}?userId=#{_global.userId1}"
+        _global.testGETAPI "/user/#{_global.userId1}", _global.userCookie1
         , 200
         ,
           code: 200
@@ -682,21 +683,21 @@ describe '用户接口测试', ->
         , done
 
     it '昵称包含需要转义的字符，转义后长度超过上限', (done) ->
-      this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
         nickname: '<'.repeat 32
       , 200
       , null
       , done
 
     it '昵称长度大于上限', (done) ->
-      this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
         nickname: 'a'.repeat 33
       , 400
       , null
       , done
 
     it '昵称为空', (done) ->
-      this.testPOSTAPI "/user/set_nickname?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
         nickname: ''
       , 400
       , null
@@ -705,12 +706,12 @@ describe '用户接口测试', ->
   describe '设置头像地址', ->
 
     it '成功', (done) ->
-      this.testPOSTAPI "/user/set_portrait_uri?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_portrait_uri", _global.userCookie1,
         portraitUri: 'http://a.com/new_address'
       , 200
       , code: 200
       , ->
-        _global.testGETAPI "/user/#{_global.userId1}?userId=#{_global.userId1}"
+        _global.testGETAPI "/user/#{_global.userId1}", _global.userCookie1
         , 200
         ,
           code: 200
@@ -719,21 +720,21 @@ describe '用户接口测试', ->
         , done
 
     it '头像地址格式不正确', (done) ->
-      this.testPOSTAPI "/user/set_portrait_uri?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_portrait_uri", _global.userCookie1,
         portraitUri: 'abcd.com/abcdefgh'
       , 400
       , null
       , done
 
     it '头像地址长度大于上限', (done) ->
-      this.testPOSTAPI "/user/set_portrait_uri?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_portrait_uri", _global.userCookie1,
         portraitUri: 'http://a.co/' + 'a'.repeat 256
       , 400
       , null
       , done
 
     it '头像地址为空', (done) ->
-      this.testPOSTAPI "/user/set_portrait_uri?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/set_portrait_uri", _global.userCookie1,
         portraitUri: ''
       , 400
       , null
@@ -742,21 +743,21 @@ describe '用户接口测试', ->
   describe '加入黑名单列表', ->
 
     it '成功', (done) ->
-      this.testPOSTAPI "/user/add_to_blacklist?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/add_to_blacklist", _global.userCookie1,
         friendId: _global.userId2
       , 200
       , code: 200
       , done
 
     it '好友 Id 为空', (done) ->
-      this.testPOSTAPI "/user/add_to_blacklist?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/add_to_blacklist", _global.userCookie1,
         friendId: null
       , 400
       , null
       , done
 
     it '好友 Id 不存在', (done) ->
-      this.testPOSTAPI "/user/add_to_blacklist?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/add_to_blacklist", _global.userCookie1,
         friendId: 'SeWrfDYG8'
       , 404
       , null
@@ -765,7 +766,7 @@ describe '用户接口测试', ->
   describe '获取黑名单列表', ->
 
     it '成功', (done) ->
-      this.testGETAPI "/user/blacklist?userId=#{_global.userId1}"
+      this.testGETAPI "/user/blacklist", _global.userCookie1
       , 200
       , code: 200
       , (body) ->
@@ -779,14 +780,14 @@ describe '用户接口测试', ->
   describe '从黑名单列表中移除', ->
 
     it '成功', (done) ->
-      this.testPOSTAPI "/user/remove_from_blacklist?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/remove_from_blacklist", _global.userCookie1,
         friendId: _global.userId2
       , 200
       , code: 200
       , done
 
     it '好友 Id 为空', (done) ->
-      this.testPOSTAPI "/user/remove_from_blacklist?userId=#{_global.userId1}",
+      this.testPOSTAPI "/user/remove_from_blacklist", _global.userCookie1,
         friendId: null
       , 400
       , null
@@ -795,7 +796,7 @@ describe '用户接口测试', ->
   describe '获取云存储所用 Token', ->
 
     it '成功', (done) ->
-      this.testGETAPI "/user/get_image_token?userId=#{_global.userId1}"
+      this.testGETAPI "/user/get_image_token", _global.userCookie1
       , 200
       ,
         code: 200
@@ -813,12 +814,13 @@ describe '用户接口测试', ->
   describe '注销', ->
 
     it '成功', (done) ->
-      _global.testPOSTAPI "/user/logout?userId=#{_global.userId1}"
+      _global.testPOSTAPI "/user/logout", _global.userCookie1
       , {}
       , 200
       , null
-      , ->
-        _global.testGETAPI "/user/#{_global.userId1}"
+      , (body, cookie) ->
+        _global.userCookie1 = cookie
+        _global.testGETAPI "/user/#{_global.userId1}", _global.userCookie1
         , 403
         , null
         , done

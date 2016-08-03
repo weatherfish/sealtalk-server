@@ -69,8 +69,6 @@ class Utility
 
     isSubArrayKey = keys.length > 0 and Array.isArray keys[0]
 
-    hasNullObj = false
-
     replaceKeys = (obj) ->
       return null if obj is null
 
@@ -79,16 +77,16 @@ class Utility
 
       if isSubArrayKey
         keys.forEach (key) ->
-          # 将 Sequelize Model 转换为 JSON
-          obj[key[0]] = obj[key[0]].dataValues if obj[key[0]].dataValues
+          subObj = obj[key[0]]
 
-          obj[key[0]][key[1]] = Utility.numberToString obj[key[0]][key[1]]
+          if subObj
+            # 将 Sequelize Model 转换为 JSON
+            subObj = subObj.dataValues if subObj.dataValues
+
+            subObj[key[1]] = Utility.numberToString subObj[key[1]] if subObj[key[1]]
       else
         keys.forEach (key) ->
-          if obj[key]
-            obj[key] = Utility.numberToString obj[key]
-          else
-            hasNullObj = true
+          obj[key] = Utility.numberToString obj[key] if obj[key]
 
       return obj
 
@@ -97,9 +95,6 @@ class Utility
         replaceKeys item
     else
       retVal = replaceKeys results
-
-    if hasNullObj
-      @logResult results
 
     return retVal
 

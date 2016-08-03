@@ -28,10 +28,11 @@ app.use cors                # 使用 CORS，支持跨域
 
 # 身份验证
 authentication = (req, res, next) ->
-  Utility.logPath 'Request: %s %s %s', (req.method + ' ').substr(0, 4), req.originalUrl, JSON.stringify(req.body).replace(/"password":".*?"/, '"password":"**********"')
-
   # 不需要验证身份的路径
   for reqPath in [
+    '/misc/demo_square'
+    '/misc/latest_update'
+    '/misc/client_version'
     '/user/login'
     '/user/register'
     '/user/reset_password'
@@ -40,11 +41,15 @@ authentication = (req, res, next) ->
     '/user/get_sms_img_code'
     '/user/check_username_available'
     '/user/check_phone_available'
-    '/misc/latest_update'
-    '/misc/client_version'
-    '/misc/demo_square'
   ]
-    if (typeof reqPath is 'string' and req.path is reqPath) or (typeof reqPath is 'object' and reqPath.test req.path)
+    if req.path is reqPath
+      if req.body.password
+        body = JSON.stringify(req.body).replace(/"password":".*?"/, '"password":"**********"')
+      else
+        body = JSON.stringify req.body
+
+      Utility.logPath 'Request: %s %s %s', req.method, req.originalUrl, body
+
       return next() # 跳过验证
 
   currentUserId = Session.getCurrentUserId req
@@ -52,6 +57,8 @@ authentication = (req, res, next) ->
   # 无法获取用户 Id，即表示没有登录
   if not currentUserId
     return res.status(403).send 'Not loged in.'
+
+  Utility.logPath 'Request: User(%s) %s %s %s', currentUserId, req.method, req.originalUrl, JSON.stringify(req.body)
 
   next()
 
