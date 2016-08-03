@@ -13,7 +13,7 @@ friendshipRouter  = require './routes/friendship'   # 引用好友相关接口
 groupRouter       = require './routes/group'        # 引用群组相关接口
 miscRouter        = require './routes/misc'         # 引用其他功能接口
 
-if env = process.env.NODE_ENV isnt 'development' and env isnt 'production'
+if (env = process.env.NODE_ENV) isnt 'development' and env isnt 'production'
   console.log "Error: NODE_ENV must be set to 'development' or 'production'."
   return process.exit()
 
