@@ -19,12 +19,12 @@ if (env = process.env.NODE_ENV) isnt 'development' and env isnt 'production'
 
 app = express()
 
-app.use compression()       # 使用内容压缩
-app.use cookieParser()      # 使用 Cookie 解析器
-app.use bodyParser.json()   # 使用 Body 解析器
 app.use cors                # 使用 CORS，支持跨域
   origin: Config.CORS_HOSTS
   credentials: true
+app.use compression()       # 使用内容压缩
+app.use cookieParser()      # 使用 Cookie 解析器
+app.use bodyParser.json()   # 使用 Body 解析器
 
 # 身份验证
 authentication = (req, res, next) ->
@@ -62,6 +62,10 @@ authentication = (req, res, next) ->
 
   next()
 
+# 设置缓存头
+cacheControl = (err, req, res, next) ->
+  res.set 'Cache-control', 'private'
+
 # 参数预处理
 parameterPreprocessor = (req, res, next) ->
   for prop of req.body
@@ -70,7 +74,7 @@ parameterPreprocessor = (req, res, next) ->
       req.body['encoded' + prop[0].toUpperCase() + prop.substr(1)] = req.body[prop]
       req.body[prop] = Utility.decodeIds req.body[prop]
 
-    # 检测空参数
+    # 检测空参数，屏显名除外
     if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName'
       return res.status(400).send "Empty #{prop}."
 
@@ -85,9 +89,9 @@ errorHandler = (err, req, res, next) ->
 
   res.status(500).send err.message || 'Unknown error.'
 
-app.options '*', cors()                 # 跨域支持
 app.all '*', authentication             # 前置身份验证
 app.use parameterPreprocessor           # 参数预处理
+app.use cacheControl                    # 缓存处理
 app.use '/user', userRouter             # 加载用户相关接口
 app.use '/friendship', friendshipRouter # 加载好友相关接口
 app.use '/group', groupRouter           # 加载群组相关接口

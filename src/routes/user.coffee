@@ -315,8 +315,8 @@ router.post '/logout', (req, res) ->
 
 # 通过手机验证码设置新密码
 router.post '/reset_password', (req, res, next) ->
-  password            = req.body.password
-  verificationToken   = req.body.verification_token
+  password          = req.body.password
+  verificationToken = req.body.verification_token
 
   if (password.indexOf(' ') != -1)
     return res.status(400).send 'Password must have no space.'
