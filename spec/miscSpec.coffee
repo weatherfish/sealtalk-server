@@ -1,4 +1,17 @@
 describe '其他接口测试', ->
+  _global = null
+
+  beforeAll (done) ->
+    _global = this
+
+    # 获取 userId 信息，登录 userId1
+    _global.loginUser _global.phoneNumber2, (userId, cookie) ->
+      _global.userId2 = userId
+      _global.userCookie2 = cookie
+      _global.loginUser _global.phoneNumber1, (userId, cookie) ->
+        _global.userId1 = userId
+        _global.userCookie1 = cookie
+        done()
 
   describe '获取最新 Mac 客户端更新信息', ->
 
@@ -51,4 +64,27 @@ describe '其他接口测试', ->
       this.testGETAPI '/misc/demo_square'
       , 200
       , code: 200
+      , done
+
+  describe '发送消息接口', ->
+
+    it '接收者不是当前用户的好友', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie1,
+        conversationType: 'PRIVATE'
+        targetId: _global.userId2
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+        pushContent: 'hello'
+      , 403
+      , null
+      , done
+
+    it 'conversationType 不支持', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie1,
+        conversationType: 'SYSTEM'
+        targetId: _global.userId2
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+      , 403
+      , null
       , done

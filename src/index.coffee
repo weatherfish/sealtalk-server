@@ -63,8 +63,10 @@ authentication = (req, res, next) ->
   next()
 
 # 设置缓存头
-cacheControl = (err, req, res, next) ->
-  res.set 'Cache-control', 'private'
+cacheControl = (req, res, next) ->
+  res.set 'Cache-Control', 'private'
+
+  next()
 
 # 参数预处理
 parameterPreprocessor = (req, res, next) ->
@@ -75,7 +77,7 @@ parameterPreprocessor = (req, res, next) ->
       req.body[prop] = Utility.decodeIds req.body[prop]
 
     # 检测空参数，屏显名除外
-    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName'
+    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName' and prop isnt 'pushContent'
       return res.status(400).send "Empty #{prop}."
 
   next()

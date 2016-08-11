@@ -1,14 +1,22 @@
-express           = require 'express'
-_                 = require 'underscore'
-jsonfile          = require 'jsonfile'
-path              = require 'path'
-semver            = require 'semver'
+express   = require 'express'
+_         = require 'underscore'
+jsonfile  = require 'jsonfile'
+path      = require 'path'
+semver    = require 'semver'
+rongCloud = require 'rongcloud-sdk'
 
-Utility           = require('../util/util').Utility
-APIResult         = require('../util/util').APIResult
+Config    = require '../conf'
+Session   = require '../util/session'
+Utility   = require('../util/util').Utility
+APIResult = require('../util/util').APIResult
 
 # 引用数据库对象和模型
-[sequelize, User, Blacklist, Friendship, Group] = require '../db'
+[sequelize, User, Blacklist, Friendship, Group, GroupMember] = require '../db'
+
+FRIENDSHIP_AGREED = 20
+
+# 初始化融云 Server API SDK
+rongCloud.init Config.RONGCLOUD_APP_KEY, Config.RONGCLOUD_APP_SECRET
 
 router = express.Router()
 
@@ -70,5 +78,59 @@ router.get '/demo_square', (req, res, next) ->
       res.send new APIResult 200, Utility.encodeResults demoSquareData
   catch err
     next err
+
+# 发送消息
+router.post '/send_message', (req, res, next) ->
+  conversationType = req.body.conversationType
+  targetId         = req.body.targetId
+  objectName       = req.body.objectName
+  content          = req.body.content
+  pushContent      = req.body.pushContent
+  encodedTargetId  = req.body.encodedTargetId
+
+  currentUserId = Session.getCurrentUserId req
+  encodedCurrentUserId = Utility.encodeId currentUserId
+
+  switch conversationType
+    when 'PRIVATE'
+      # Target user MUST be friend of current user.
+      Friendship.count
+        where:
+          userId: currentUserId
+          friendId: targetId
+          status: FRIENDSHIP_AGREED
+      .then (count) ->
+        if count > 0
+          rongCloud.message.private.publish encodedCurrentUserId, encodedTargetId, objectName, content, pushContent,
+            (err, resultText) ->
+              # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
+              if err
+                Utility.logError 'Error: send message failed: %j', err
+                throw err
+
+              res.send new APIResult 200
+        else
+          res.status(403).send "User #{encodedTargetId} is not your friend."
+    when 'GROUP'
+      # Current user MUST be member of target group.
+      GroupMember.count
+        where:
+          groupId: targetId
+          memberId: currentUserId
+      .then (count) ->
+        if count > 0
+          rongCloud.message.group.publish encodedCurrentUserId, encodedTargetId, objectName, content, pushContent,
+            (err, resultText) ->
+              # 暂不考虑回调的结果是否成功，后续可以考虑记录到系统错误日志中
+              if err
+                Utility.logError 'Error: send message failed: %j', err
+                throw err
+
+              res.send new APIResult 200
+        else
+          Utility.log "Your are not member of Group #{targetId}."
+          res.status(403).send "Your are not member of Group #{encodedTargetId}."
+    else
+      res.status(403).send 'Unsupported conversation type.'
 
 module.exports = router

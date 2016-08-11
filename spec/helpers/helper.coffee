@@ -94,6 +94,18 @@ beforeAll ->
     , 10
 
   this.testHTTPResult = (err, res, statusCode, testBody) ->
+    cacheControl = res.get 'Cache-Control'
+    contentType = res.get 'Content-Type'
+
+    switch res.status
+      when 200
+        expect(contentType).toEqual('application/json; charset=utf-8')
+        expect(cacheControl).toEqual('private')
+      when 204
+        expect(contentType).toEqual(undefined)
+      else
+        expect(contentType).toEqual('text/html; charset=utf-8')
+
     if statusCode
       expect(res.status).toEqual(statusCode)
 

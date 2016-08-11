@@ -175,6 +175,29 @@ describe '好友接口测试', ->
       , null
       , done
 
+  describe '发送消息接口', ->
+
+    it '成功发送单聊消息', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie1,
+        conversationType: 'PRIVATE'
+        targetId: _global.userId2
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+        pushContent: 'hello'
+      , 200
+      , code: 200
+      , done
+
+    it 'pushContent 可以为空', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie1,
+        conversationType: 'PRIVATE'
+        targetId: _global.userId2
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+      , 200
+      , code: 200
+      , done
+
   describe '设置好友昵称', ->
 
     it '成功', (done) ->

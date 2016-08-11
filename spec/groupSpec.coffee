@@ -662,6 +662,30 @@ describe '群组接口测试', ->
       , null
       , done
 
+  describe '发送消息接口', ->
+
+    it '成功发送群消息', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie1,
+        conversationType: 'GROUP'
+        targetId: _global.groupId1
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+        pushContent: 'hello'
+      , 200
+      , code: 200
+      , done
+
+    it '当前用户不属于目标群', (done) ->
+      this.testPOSTAPI '/misc/send_message', _global.userCookie2,
+        conversationType: 'GROUP'
+        targetId: _global.groupId2
+        objectName: 'RC:TxtMsg'
+        content: '{"content":"hello"}'
+        pushContent: 'hello'
+      , 403
+      , null
+      , done
+
   describe '获取群组信息', ->
 
     it '成功获取存在的群组', (done) ->
