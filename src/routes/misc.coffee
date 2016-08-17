@@ -128,7 +128,6 @@ router.post '/send_message', (req, res, next) ->
 
               res.send new APIResult 200
         else
-          Utility.log "Your are not member of Group #{targetId}."
           res.status(403).send "Your are not member of Group #{encodedTargetId}."
     else
       res.status(403).send 'Unsupported conversation type.'

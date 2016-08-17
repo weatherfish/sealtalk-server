@@ -258,7 +258,6 @@ describe '好友接口测试', ->
           displayName: 'STRING'
           user:
             id: 'STRING'
-            uid: 'INTEGER'
             nickname: 'STRING'
             portraitUri: 'STRING'
             # username: 'STRING'

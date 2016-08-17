@@ -378,7 +378,7 @@ router.get '/all', (req, res, next) ->
     res.send new APIResult 200, Utility.encodeResults friends, [['user', 'id']]
   .catch next
 
-# 获取用户详细资料
+# 获取好友详细资料
 router.get '/:id/profile', (req, res, next) ->
   userId = req.params.id
 
@@ -398,7 +398,6 @@ router.get '/:id/profile', (req, res, next) ->
       attributes: [
         'id'
         # 'username'
-        ['id', 'uid']
         'nickname'
         'region'
         'phone'
