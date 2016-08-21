@@ -240,7 +240,8 @@ router.post '/agree', (req, res, next) ->
       where:
         userId: currentUserId
         friendId: friendId
-        status: FRIENDSHIP_REQUESTED
+        status:
+          $in: [FRIENDSHIP_REQUESTED, FRIENDSHIP_AGREED ]
       transaction: t
     .then ([affectedCount]) ->
       if affectedCount is 0
