@@ -18,6 +18,11 @@ module.exports = (grunt) ->
           src: 'spec/**/*.coffee'
           ext: '.js'
           dest: 'build'
+        ,
+          expand: true
+          src: 'sync.coffee'
+          ext: '.js'
+          dest: 'build'
         ]
 
     clean:
@@ -54,6 +59,7 @@ module.exports = (grunt) ->
           'src/**/*.json'
           'src/**/*.coffee'
           'spec/**/*.coffee'
+          'sync.coffee'
         ]
         tasks: [
           'clean'

@@ -1,4 +1,4 @@
-[sequelize] = require './src/db.coffee'
+[sequelize] = require './src/db'
 
 console.log 'Drop all schemas.'
 
