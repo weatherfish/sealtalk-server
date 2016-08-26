@@ -28,6 +28,7 @@ app.use bodyParser.json()   # 使用 Body 解析器
 
 # 身份验证
 authentication = (req, res, next) ->
+  userAgent = req.get('user-agent').substr 0, 50
   # 不需要验证身份的路径
   for reqPath in [
     '/misc/demo_square'
@@ -48,7 +49,7 @@ authentication = (req, res, next) ->
       else
         body = JSON.stringify req.body
 
-      Utility.logPath 'Request: %s %s %s', req.method, req.originalUrl, body
+      Utility.logPath '%s %s %s %s', userAgent, req.method, req.originalUrl, body
 
       return next() # 跳过验证
 
@@ -58,7 +59,7 @@ authentication = (req, res, next) ->
   if not currentUserId
     return res.status(403).send 'Not loged in.'
 
-  Utility.logPath 'Request: User(%s) %s %s %s', currentUserId, req.method, req.originalUrl, JSON.stringify(req.body)
+  Utility.logPath '%s User(%s/%s) %s %s %s', userAgent, Utility.encodeId(currentUserId), currentUserId, req.method, req.originalUrl, JSON.stringify(req.body)
 
   next()
 
@@ -77,7 +78,6 @@ parameterPreprocessor = (req, res, next) ->
       req.body[prop] = Utility.decodeIds req.body[prop]
 
     # 检测空参数，屏显名除外
-    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName' and prop isnt 'pushContent'
       return res.status(400).send "Empty #{prop}."
 
   next()

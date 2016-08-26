@@ -47,7 +47,6 @@ class Session
 
     @cache.set 'nickname_' + userId, nickname
 
-
   @setAuthCookie: (res, userId) ->
     value = Utility.encryptText userId, Config.AUTH_COOKIE_KEY
 
