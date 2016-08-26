@@ -78,6 +78,7 @@ parameterPreprocessor = (req, res, next) ->
       req.body[prop] = Utility.decodeIds req.body[prop]
 
     # 检测空参数，屏显名除外
+    if Utility.isEmpty(req.body[prop]) and prop isnt 'displayName' and prop isnt 'pushContent' and prop isnt 'bulletin'
       return res.status(400).send "Empty #{prop}."
 
   next()

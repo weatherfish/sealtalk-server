@@ -18,22 +18,24 @@ GROUP_MEMBER  = 1
 GROUP_NAME_MIN_LENGTH = 2
 GROUP_NAME_MAX_LENGTH = 32
 
+GROUP_BULLETIN_MAX_LENGTH = 1024
+
 PORTRAIT_URI_MIN_LENGTH = 12
 PORTRAIT_URI_MAX_LENGTH = 256
 
-GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH = 1
 GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH = 32
 
 DEFAULT_MAX_GROUP_MEMBER_COUNT = 500
 MAX_USER_GROUP_OWN_COUNT = 500
 
-GROUP_OPERATION_CREATE  = 'Create'
-GROUP_OPERATION_ADD     = 'Add'
-GROUP_OPERATION_QUIT    = 'Quit'
-GROUP_OPERATION_DISMISS = 'Dismiss'
-GROUP_OPERATION_KICKED  = 'Kicked'
-GROUP_OPERATION_RENAME  = 'Rename'
-# GROUP_OPERATION_BULLETIN = 'Bulletin' # 暂时不需要
+GROUP_OPERATION_CREATE   = 'Create'
+GROUP_OPERATION_ADD      = 'Add'
+GROUP_OPERATION_QUIT     = 'Quit'
+GROUP_OPERATION_DISMISS  = 'Dismiss'
+GROUP_OPERATION_KICKED   = 'Kicked'
+GROUP_OPERATION_RENAME   = 'Rename'
+GROUP_OPERATION_BULLETIN = 'Bulletin'
+GROUP_OPERATION_TRANSFER = 'Transfer'
 
 # 融云 Server API SDK
 rongCloud.init Config.RONGCLOUD_APP_KEY, Config.RONGCLOUD_APP_SECRET
@@ -42,6 +44,7 @@ sendGroupNotification = (userId, groupId, operation, data) ->
   encodedUserId = Utility.encodeId userId
   encodedGroupId = Utility.encodeId groupId
 
+  # Hack for old version compatibility.
   data.data = JSON.parse JSON.stringify data
 
   groupNotificationMessage =
@@ -422,6 +425,18 @@ router.post '/quit', (req, res, next) ->
       if not isInGroup
         return res.status(403).send 'Current user is not group member.'
 
+      newCreatorId = null
+
+      if group.creatorId is currentUserId and groupMembers.length > 1
+        # 寻找第一个不是群组创建者的人
+        groupMembers.some (groupMember) ->
+          if groupMember.memberId isnt currentUserId
+            # 将群组创建者改为第一个不是群组创建者的人
+            newCreatorId = groupMember.memberId
+            return true
+          else
+            return false
+
       encodedMemberIds = [Utility.encodeId(currentUserId)]
 
       Session.getCurrentUserNickname currentUserId, User
@@ -432,6 +447,7 @@ router.post '/quit', (req, res, next) ->
           operatorNickname: nickname
           targetUserIds: encodedMemberIds
           targetUserDisplayNames: [nickname]
+          newCreatorId: newCreatorId
           timestamp: timestamp
         .then ->
           # 调用融云接口退出群组，如果创建失败，后续用计划任务同步
@@ -481,16 +497,6 @@ router.post '/quit', (req, res, next) ->
                 ]
               # 如果是创建者，且群成员大于一，需要将创建者移交给群组里的第二个成员
               else if group.memberCount > 1
-                newCreatorId = null
-                # 寻找第一个不是群组创建者的人
-                groupMembers.some (groupMember) ->
-                  if groupMember.memberId isnt currentUserId
-                    # 将群组创建者改为第一个不是群组创建者的人
-                    newCreatorId = groupMember.memberId
-                    return true
-                  else
-                    return false
-
                 resultMessage = 'Quit and group owner transfered.'
 
                 Promise.all [
@@ -630,6 +636,86 @@ router.post '/dismiss', (req, res, next) ->
             return res.status(err.statusCode).send err.message
   .catch next
 
+# 创建者将创建者身份转移给其他群成员
+router.post '/transfer', (req, res, next) ->
+  groupId = req.body.groupId
+  userId  = req.body.userId
+  encodedUserId = req.body.encodedUserId
+
+  currentUserId = Session.getCurrentUserId req
+  timestamp = Date.now()
+
+  if userId is currentUserId
+    return res.status(403).send 'Can not transfer creator role to yourself.'
+
+  GroupMember.findAll
+    where:
+      groupId: groupId
+      memberId:
+        $in: [currentUserId, userId]
+    order: 'role ASC'
+    attributes: [
+      'memberId'
+      'role'
+    ]
+  .then (groupMembers) ->
+    if groupMembers.length isnt 2
+      return res.status(400).send 'Invalid groupId or userId.'
+
+    if groupMembers[0].memberId isnt currentUserId or groupMembers[0].role isnt GROUP_CREATOR
+      return res.status(400).send 'Current user is not group creator.'
+
+    sequelize.transaction (t) ->
+      Promise.all [
+        # 更新群组创建者
+        Group.update
+          creatorId: userId
+          timestamp: timestamp
+        ,
+          where:
+            id: groupId
+          transaction: t
+      ,
+        # 原群组创建者变为普通成员
+        GroupMember.update
+          role: GROUP_MEMBER
+          timestamp:timestamp
+        ,
+          where:
+            groupId: groupId
+            memberId: currentUserId
+          transaction: t
+      ,
+        # 新成员变为群组创建者
+        GroupMember.update
+          role: GROUP_CREATOR
+          timestamp:timestamp
+        ,
+          where:
+            groupId: groupId
+            memberId: userId
+          transaction: t
+      ]
+    .then ->
+      # 更新版本号（时间戳）
+      DataVersion.updateGroupMemberVersion groupId, timestamp
+      .then ->
+        Session.getCurrentUserNickname currentUserId, User
+        .then (currentUserNickname) ->
+          User.getNickname userId
+          .then (nickname) ->
+            sendGroupNotification currentUserId,
+              groupId,
+              GROUP_OPERATION_TRANSFER,
+              oldCreatorId: Utility.encodeId currentUserId
+              oldCreatorName: currentUserNickname
+              newCreatorId: encodedUserId
+              newCreatorName: nickname
+              timestamp: timestamp
+
+        res.send new APIResult 200
+  .catch next
+
 # 创建者为群组重命名
 router.post '/rename', (req, res, next) ->
   groupId = req.body.groupId
@@ -688,6 +774,36 @@ router.post '/rename', (req, res, next) ->
       res.send new APIResult 200
   .catch next
 
+# 创建者设置群公告
+router.post '/set_bulletin', (req, res, next) ->
+  groupId  = req.body.groupId
+  bulletin = Utility.xss req.body.bulletin, GROUP_BULLETIN_MAX_LENGTH
+
+  if not validator.isLength bulletin, 0, GROUP_BULLETIN_MAX_LENGTH
+    return res.status(400).send 'Length of bulletin invalid.'
+
+  currentUserId = Session.getCurrentUserId req
+  timestamp = Date.now()
+
+  # 更新数据库
+  Group.update
+    bulletin: bulletin
+    timestamp: timestamp
+  ,
+    where:
+      id: groupId
+      creatorId: currentUserId
+  .then ([affectedCount]) ->
+    # 只有创建者才可以设置群公告
+    if affectedCount is 0
+      return res.status(400).send 'Unknown group or not creator.'
+
+    # 更新版本号（时间戳）
+    DataVersion.updateGroupVersion groupId, timestamp
+    .then ->
+      res.send new APIResult 200
+  .catch next
+
 # 创建者设置群组头像地址
 router.post '/set_portrait_uri', (req, res, next) ->
   groupId     = req.body.groupId
@@ -723,9 +839,9 @@ router.post '/set_portrait_uri', (req, res, next) ->
 # 修改自己的群组昵称
 router.post '/set_display_name', (req, res, next) ->
   groupId = req.body.groupId
-  displayName = Utility.xss req.body.displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH
+  displayName = Utility.xss req.body.displayName, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
 
-  if (displayName isnt '') and not validator.isLength displayName, GROUP_MEMBER_DISPLAY_NAME_MIN_LENGTH, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
+  if not validator.isLength displayName, 0, GROUP_MEMBER_DISPLAY_NAME_MAX_LENGTH
     return res.status(400).send 'Length of display name invalid.'
 
   currentUserId = Session.getCurrentUserId req
@@ -763,6 +879,7 @@ router.get '/:id', (req, res, next) ->
       'memberCount'
       'maxMemberCount'
       'creatorId'
+      'bulletin'
       'deletedAt'
     ]
     paranoid: false

@@ -196,6 +196,63 @@ describe '群组接口测试', ->
       , null
       , done
 
+  describe '创建者设置群公告', ->
+
+    it '成功', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie1,
+        groupId: _global.groupId1
+        bulletin: _global.xssString + 'a'
+      , 200
+      , null
+      , ->
+        _global.testGETAPI "/group/#{_global.groupId1}", _global.userCookie1
+        , 200
+        ,
+          code: 200
+          result:
+            bulletin: _global.filteredString + 'a'
+        , done
+
+    it '群组 Id 不存在', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie3,
+        groupId: _global.groupId1
+        bulletin: 'New Name'
+      , 400 # 本应是 404，不过为了优化代码返回 400
+      , null
+      , done
+
+    it '不是群组创建者', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie3,
+        groupId: _global.groupId1
+        bulletin: 'New Name'
+      , 400 # 本应是 403，不过为了优化代码返回 400
+      , null
+      , done
+
+    it '群公告长度大于上限', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie1,
+        groupId: _global.groupId1
+        bulletin: 'a'.repeat 1025
+      , 400
+      , null
+      , done
+
+    it '群组 Id 为空', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie1,
+        groupId: null
+        bulletin: 'New Name'
+      , 400
+      , null
+      , done
+
+    it '群公告为空', (done) ->
+      this.testPOSTAPI "/group/set_bulletin", _global.userCookie1,
+        groupId: _global.groupId1
+        bulletin: ''
+      , 200
+      , null
+      , done
+
   describe '创建者设置群组头像地址', ->
 
     it '成功', (done) ->
@@ -620,11 +677,61 @@ describe '群组接口测试', ->
       , null
       , done
 
+  describe '当前用户转移群组创建者', ->
+    it '成功', (done) ->
+      this.testPOSTAPI "/group/transfer", _global.userCookie2,
+        groupId: _global.groupId2 # group2 = [user1, user2, user3]
+        userId: _global.userId1
+      , 200
+      , code: 200
+      , (body) ->
+        _global.testGETAPI "/group/#{_global.groupId2}/members", _global.userCookie1
+        , 200
+        , code: 200
+        , (body) ->
+          expect(body.result.length).toEqual(3)
+          if body.result.length > 0
+            expect(body.result[0].user.id).toEqual(_global.userId1)
+            expect(body.result[0].role).toEqual(0)
+          done()
+
+    it '群组 Id 不存在', (done) ->
+      this.testPOSTAPI "/group/transfer", _global.userCookie1,
+        groupId: '5Vg2XCh9f'
+        userId: _global.userId2
+      , 400
+      , null
+      , done
+
+    it '目标用户 Id 不存在', (done) ->
+      this.testPOSTAPI "/group/transfer", _global.userCookie1,
+        groupId: _global.groupId2
+        userId: '5Vg2XCh9f'
+      , 400
+      , null
+      , done
+
+    it '目标用户是自己', (done) ->
+      this.testPOSTAPI "/group/transfer", _global.userCookie1,
+        groupId: _global.groupId2
+        userId: _global.userId1
+      , 403
+      , null
+      , done
+
+    it '当前用户不是群组创建者', (done) ->
+      this.testPOSTAPI "/group/transfer", _global.userCookie2,
+        groupId: _global.groupId2
+        userId: _global.userId1
+      , 400
+      , null
+      , done
+
   describe '当前用户退出群组', ->
 
     it '成功', (done) ->
-      this.testPOSTAPI "/group/quit", _global.userCookie1,
-        groupId: _global.groupId2 # group2 = [user2, user3]
+      this.testPOSTAPI "/group/quit", _global.userCookie2,
+        groupId: _global.groupId2 # group2 = [user1, user3]
       , 200
       , null
       , done
@@ -637,22 +744,46 @@ describe '群组接口测试', ->
       , done
 
     it '当前用户不是群组成员', (done) ->
-      this.testPOSTAPI "/group/quit", _global.userCookie3,
-        groupId: _global.groupId1
+      this.testPOSTAPI "/group/quit", _global.userCookie2,
+        groupId: _global.groupId2
       , 403
       , null
       , done
 
-    it '退出并解散群组', (done) ->
-      this.testPOSTAPI "/group/quit", _global.userCookie2,
+    it '退出并将群组创建者交给下一个用户', (done) ->
+      this.testPOSTAPI "/group/quit", _global.userCookie1,
         groupId: _global.groupId2 # group2 = [user3]
       , 200
       , null
       , ->
-        _global.testPOSTAPI "/group/quit", _global.userCookie3,
-          groupId: _global.groupId2
+        _global.testGETAPI "/group/#{_global.groupId2}/members", _global.userCookie3
         , 200
-        , null
+        , code: 200
+        , (body) ->
+          expect(body.result.length).toEqual(1)
+          if body.result.length > 0
+            expect(body.result[0].role).toEqual(0)
+            expect(body.result[0].user.id).toEqual(_global.userId3)
+          done()
+
+    it '退出并解散群组', (done) ->
+      this.testPOSTAPI "/group/quit", _global.userCookie3,
+        groupId: _global.groupId2
+      , 200
+      , null
+      , ->
+        _global.testGETAPI "/group/#{_global.groupId2}", _global.userCookie3
+        , 200
+        ,
+          code: 200
+          result:
+            id: _global.groupId2
+            name: 'STRING'
+            portraitUri: 'STRING'
+            memberCount: 0
+            creatorId: 'STRING'
+            deletedAt: 'STRING'
+            maxMemberCount: 'INTEGER'
         , done
 
     it '群组 Id 为空', (done) ->
@@ -694,7 +825,7 @@ describe '群组接口测试', ->
       ,
         code: 200
         result:
-          id: 'STRING'
+          id: _global.groupId1
           name: 'STRING'
           portraitUri: 'STRING'
           memberCount: 'INTEGER'
@@ -708,10 +839,10 @@ describe '群组接口测试', ->
       ,
         code: 200
         result:
-          id: 'STRING'
+          id: _global.groupId2
           name: 'STRING'
           portraitUri: 'STRING'
-          memberCount: 'INTEGER'
+          memberCount: 0
           creatorId: 'STRING'
           deletedAt: 'STRING'
           maxMemberCount: 'INTEGER'

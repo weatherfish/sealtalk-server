@@ -276,6 +276,7 @@ Group = sequelize.define 'groups',
   memberCount:    { type: Sequelize.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 }
   maxMemberCount: { type: Sequelize.INTEGER.UNSIGNED, allowNull: false, defaultValue: 500 }
   creatorId:      { type: Sequelize.INTEGER.UNSIGNED, allowNull: false }
+  bulletin:       { type: Sequelize.TEXT, allowNull: true }
   timestamp:      { type: Sequelize.BIGINT.UNSIGNED, allowNull: false, defaultValue: 0, comment: '时间戳（版本号）' }
   ,
     classMethods: groupClassMethods
