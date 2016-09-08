@@ -11,6 +11,7 @@
 
 describe '群组接口测试', ->
   _global = null
+  _cachedBody = null
   memberIds1_2 = null
   memberIds2_3 = null
 
@@ -138,7 +139,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         name: _global.xssString + 'a'
       , 200
-      , null
+      , code: 200
       , ->
         _global.testGETAPI "/group/#{_global.groupId1}", _global.userCookie1
         , 200
@@ -203,7 +204,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         bulletin: _global.xssString + 'a'
       , 200
-      , null
+      , code: 200
       , ->
         _global.testGETAPI "/group/#{_global.groupId1}", _global.userCookie1
         , 200
@@ -250,7 +251,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         bulletin: ''
       , 200
-      , null
+      , code: 200
       , done
 
   describe '创建者设置群组头像地址', ->
@@ -325,7 +326,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         displayName: _global.xssString
       , 200
-      , null
+      , code: 200
       , (body) ->
         _global.testGETAPI "/group/#{_global.groupId1}/members", _global.userCookie1
         , 200
@@ -363,7 +364,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         displayName: ''
       , 200
-      , null
+      , code: 200
       , done
 
   describe '获取当前用户所属所有群组列表', ->
@@ -375,8 +376,8 @@ describe '群组接口测试', ->
       , (body) ->
         expect(body.result.length).toEqual(1)
         if body.result.length > 0
-          expect(body.result[0].role).toBeDefined()
-          expect(body.result[0].group.id).toBeDefined()
+          expect(body.result[0].role).toEqual(0)
+          expect(body.result[0].group.id).toEqual(_global.groupId1)
           expect(body.result[0].group.name).toBeDefined()
           expect(body.result[0].group.portraitUri).toBeDefined()
           expect(body.result[0].group.memberCount).toBeDefined()
@@ -393,19 +394,28 @@ describe '群组接口测试', ->
 
   describe '获取群组成员', ->
 
-    it '成功', (done) ->
+    it '成功 - 未命中缓存', (done) ->
       this.testGETAPI "/group/#{_global.groupId1}/members", _global.userCookie1
       , 200
       , code: 200
       , (body) ->
-        expect(body.result.length).toBeGreaterThan(1)
+        expect(body.result.length).toEqual(2)
         if body.result.length > 0
           expect(body.result[0].displayName).toBeDefined()
-          expect(body.result[0].role).toBeDefined()
+          expect(body.result[0].role).toEqual(0)
           expect(body.result[0].createdAt).toBeDefined()
-          expect(body.result[0].user.id).toBeDefined()
+          expect(body.result[0].user.id).toEqual(_global.userId1)
           expect(body.result[0].user.nickname).toBeDefined()
           expect(body.result[0].user.portraitUri).toBeDefined()
+          _cachedBody = body
+          done()
+
+    it '成功 - 命中缓存', (done) ->
+      this.testGETAPI "/group/#{_global.groupId1}/members", _global.userCookie1
+      , 200
+      , code: 200
+      , (body) ->
+        expect(body).toEqual(_cachedBody)
         done()
 
     it '群组 Id 不存在', (done) ->
@@ -414,7 +424,7 @@ describe '群组接口测试', ->
       , null
       , done
 
-    it '当前用户不是群组成员', (done) ->
+    it '当前用户不是群组成员 - 命中缓存', (done) ->
       this.testGETAPI "/group/#{_global.groupId1}/members", _global.userCookie3
       , 403
       , null
@@ -427,7 +437,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         memberIds: [_global.userId3]
       , 200
-      , null
+      , code: 200
       , ->
         _global.testGETAPI "/group/#{_global.groupId1}", _global.userCookie1
         , 200
@@ -448,13 +458,13 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         memberIds: [_global.userId3] # group1 = [user1, user2]
       , 200
-      , null
+      , code: 200
       , ->
         _global.testPOSTAPI "/group/add", _global.userCookie1,
           groupId: _global.groupId1
           memberIds: [_global.userId3] # group1 = [user1, user2, user3]
         , 200
-        , null
+        , code: 200
         , ->
           _global.testGETAPI "/group/#{_global.groupId1}", _global.userCookie1
           , 200
@@ -539,7 +549,7 @@ describe '群组接口测试', ->
         groupId: _global.groupId1
         memberIds: [_global.userId3] # group1 = [user1, user2]
       , 200
-      , null
+      , code: 200
       , done
 
     it '群组 Id 不存在', (done) ->
@@ -610,11 +620,17 @@ describe '群组接口测试', ->
         _global.groupId2 = body.result.id # group2 = [user2, user3]
         done()
 
+    it '当前用户不是群组成员 - 未命中缓存', (done) ->
+      this.testGETAPI "/group/#{_global.groupId2}/members", _global.userCookie1
+      , 403
+      , null
+      , done
+
     it '成功', (done) ->
       this.testPOSTAPI "/group/join", _global.userCookie1,
         groupId: _global.groupId2 # group2 = [user1, user2, user3]
       , 200
-      , null
+      , code: 200
       , done
 
     it '加入自己曾经被踢出过群组', (done) ->
@@ -626,12 +642,12 @@ describe '群组接口测试', ->
           groupId: _global.groupId2
           memberIds: [_global.userId3] # group2 = [user1, user2]
         , 200
-        , null
+        , code: 200
         , ->
           _global.testPOSTAPI "/group/join", _global.userCookie3,
             groupId: _global.groupId2 # group2 = [user1, user2, user3]
           , 200
-          , null
+          , code: 200
           , done
 
     it '群组 Id 不存在', (done) ->
@@ -733,7 +749,7 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/quit", _global.userCookie2,
         groupId: _global.groupId2 # group2 = [user1, user3]
       , 200
-      , null
+      , code: 200
       , done
 
     it '群组 Id 不存在', (done) ->
@@ -754,7 +770,7 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/quit", _global.userCookie1,
         groupId: _global.groupId2 # group2 = [user3]
       , 200
-      , null
+      , code: 200
       , ->
         _global.testGETAPI "/group/#{_global.groupId2}/members", _global.userCookie3
         , 200
@@ -770,7 +786,7 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/quit", _global.userCookie3,
         groupId: _global.groupId2
       , 200
-      , null
+      , code: 200
       , ->
         _global.testGETAPI "/group/#{_global.groupId2}", _global.userCookie3
         , 200
@@ -778,13 +794,14 @@ describe '群组接口测试', ->
           code: 200
           result:
             id: _global.groupId2
-            name: 'STRING'
+            name: _global.groupName2
             portraitUri: 'STRING'
             memberCount: 0
-            creatorId: 'STRING'
+            creatorId: _global.userId3
             deletedAt: 'STRING'
             maxMemberCount: 'INTEGER'
-        , done
+        , (body) ->
+          done()
 
     it '群组 Id 为空', (done) ->
       this.testPOSTAPI "/group/quit", _global.userCookie1,
@@ -883,7 +900,7 @@ describe '群组接口测试', ->
       this.testPOSTAPI "/group/dismiss", _global.userCookie1,
         groupId: _global.groupId1
       , 200
-      , null
+      , code: 200
       , done
 
     it '群组 Id 不存在', (done) ->
@@ -914,7 +931,7 @@ describe '群组接口测试', ->
   describe '同步数据', ->
     it '成功，有数据', (done) ->
 
-      this.testGETAPI "/user/sync/123", _global.userCookie1
+      this.testGETAPI "/user/sync/0", _global.userCookie1
       , 200
       ,
         code: 200

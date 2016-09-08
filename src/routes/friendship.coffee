@@ -3,6 +3,7 @@ moment    = require 'moment'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
+Cache     = require '../util/cache'
 Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
@@ -157,9 +158,13 @@ router.post '/invite', (req, res, next) ->
                     message,
                     timestamp
 
+                Cache.del "friendship_all_#{currentUserId}"
+
                 Utility.log 'Invite result: %s %s', action, resultMessage
                 res.send new APIResult 200, action: action, resultMessage
             else
+              Cache.del "friendship_all_#{currentUserId}"
+
               Utility.log 'Invite result: %s %s', action, resultMessage
               res.send new APIResult 200, action: action, resultMessage
     else
@@ -178,6 +183,8 @@ router.post '/invite', (req, res, next) ->
           DataVersion.updateFriendshipVersion currentUserId, timestamp
         ]
         .then ->
+          Cache.del "friendship_all_#{currentUserId}"
+
           Utility.log 'Invite result: %s %s', action, resultMessage
           res.send new APIResult 200, action: action, resultMessage
       else
@@ -218,6 +225,8 @@ router.post '/invite', (req, res, next) ->
                   CONTACT_OPERATION_REQUEST,
                   message,
                   timestamp
+
+              Cache.del "friendship_all_#{currentUserId}"
 
               Utility.log 'Invite result: %s %s', 'Sent', 'Request sent.'
               res.send new APIResult 200, action: 'Sent', 'Request sent.'
@@ -272,6 +281,8 @@ router.post '/agree', (req, res, next) ->
               '',
               timestamp
 
+          Cache.del "friendship_all_#{currentUserId}"
+
           res.send new APIResult 200
   .catch next
 
@@ -297,6 +308,8 @@ router.post '/ignore', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
+      Cache.del "friendship_all_#{currentUserId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -324,6 +337,9 @@ router.post '/delete', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
+      Cache.del "friendship_profile_displayName_#{currentUserId}_#{friendId}"
+      Cache.del "friendship_all_#{currentUserId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -353,62 +369,96 @@ router.post '/set_display_name', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
+      Cache.del "friendship_profile_#{currentUserId}_#{friendId}"
+
       res.send new APIResult 200
   .catch next
 
 # 获取好友列表
 router.get '/all', (req, res, next) ->
-  Friendship.findAll
-    where:
-      userId: Session.getCurrentUserId req
-    attributes: [
-      'displayName'
-      'message'
-      'status'
-      'updatedAt'
-    ]
-    include:
-      model: User
-      attributes: [
-        'id'
-        'nickname'
-        'portraitUri'
-      ]
+  currentUserId = Session.getCurrentUserId req
+
+  Cache.get "friendship_all_#{currentUserId}"
   .then (friends) ->
-    # 为节约服务端资源，客户端自己排序
-    res.send new APIResult 200, Utility.encodeResults friends, [['user', 'id']]
+    if friends
+      res.send new APIResult 200, friends
+    else
+      Friendship.findAll
+        where:
+          userId: currentUserId
+        attributes: [
+          'displayName'
+          'message'
+          'status'
+          'updatedAt'
+        ]
+        include:
+          model: User
+          attributes: [
+            'id'
+            'nickname'
+            'region'
+            'phone'
+            'portraitUri'
+          ]
+      .then (friends) ->
+        results = Utility.encodeResults friends, [['user', 'id']]
+
+        Cache.set "friendship_all_#{currentUserId}", results
+
+        # 为节约服务端资源，客户端自己排序
+        res.send new APIResult 200, results
   .catch next
 
 # 获取好友详细资料
-router.get '/:id/profile', (req, res, next) ->
-  userId = req.params.id
+router.get '/:friendId/profile', (req, res, next) ->
+  friendId = req.params.friendId
 
-  userId = Utility.decodeIds userId
+  friendId = Utility.decodeIds friendId
 
-  # 只可以看好友的（好友状态为被对方同意）
-  Friendship.findOne
-    where:
-      userId: Session.getCurrentUserId req
-      friendId: userId
-      status: FRIENDSHIP_AGREED
-    attributes: [
-      'displayName'
-    ]
-    include:
-      model: User
-      attributes: [
-        'id'
-        # 'username'
-        'nickname'
-        'region'
-        'phone'
-        'portraitUri'
-      ]
-  .then (friend) ->
-    if not friend
-      return res.status(403).send "Current user is not friend of user #{userId}."
+  currentUserId = Session.getCurrentUserId req
 
-    res.send new APIResult 200, Utility.encodeResults friend, [['user', 'id']]
+  Cache.get "friendship_profile_displayName_#{currentUserId}_#{friendId}"
+  .then (displayName) ->
+    Cache.get "friendship_profile_user_#{friendId}"
+    .then (profile) ->
+      if displayName and profile
+        results = {
+          displayName: displayName
+          user: profile
+        }
+
+        res.send new APIResult 200, results
+      else
+        # 只可以看好友的（好友状态为被对方同意）
+        Friendship.findOne
+          where:
+            userId: currentUserId
+            friendId: friendId
+            status: FRIENDSHIP_AGREED
+          attributes: [
+            'displayName'
+          ]
+          include:
+            model: User
+            attributes: [
+              'id'
+              # 'username'
+              'nickname'
+              'region'
+              'phone'
+              'portraitUri'
+            ]
+        .then (friend) ->
+          if not friend
+            return res.status(403).send "Current user is not friend of user #{currentUserId}."
+
+          results = Utility.encodeResults friend, [['user', 'id']]
+
+          Cache.set "friendship_profile_displayName_#{currentUserId}_#{friendId}", results.displayName
+          Cache.set "friendship_profile_user_#{friendId}", results.user
+
+          res.send new APIResult 200, results
   .catch next
 
 module.exports = router

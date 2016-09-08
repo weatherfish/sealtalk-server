@@ -6,6 +6,7 @@ rongCloud = require 'rongcloud-sdk'
 qiniu     = require 'qiniu'
 
 Config    = require '../conf'
+Cache     = require '../util/cache'
 Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
@@ -411,6 +412,19 @@ router.post '/set_nickname', (req, res, next) ->
       DataVersion.updateAllFriendshipVersion currentUserId, timestamp
     ]
     .then ->
+      Cache.del "user_#{currentUserId}"
+      Cache.del "friendship_profile_user_#{currentUserId}"
+
+      Friendship.findAll
+        where:
+          userId: currentUserId
+        attributes: [
+          'friendId'
+        ]
+      .then (friends) ->
+        friends.forEach (friend) ->
+          Cache.del "friendship_all_#{friend.friendId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -449,6 +463,19 @@ router.post '/set_portrait_uri', (req, res, next) ->
       DataVersion.updateAllFriendshipVersion currentUserId, timestamp
     ]
     .then ->
+      Cache.del "user_#{currentUserId}"
+      Cache.del "friendship_profile_user_#{currentUserId}"
+
+      Friendship.findAll
+        where:
+          userId: currentUserId
+        attributes: [
+          'friendId'
+        ]
+      .then (friends) ->
+        friends.forEach (friend) ->
+          Cache.del "friendship_all_#{friend.friendId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -478,6 +505,8 @@ router.post '/add_to_blacklist', (req, res, next) ->
             # 更新版本号（时间戳）
             DataVersion.updateBlacklistVersion currentUserId, timestamp
             .then ->
+              Cache.del "user_blacklist_#{currentUserId}"
+
               res.send new APIResult 200
     else
       res.status(404).send 'friendId is not an available userId.'
@@ -508,6 +537,8 @@ router.post '/remove_from_blacklist', (req, res, next) ->
         # 更新版本号（时间戳）
         DataVersion.updateBlacklistVersion currentUserId, timestamp
         .then ->
+          Cache.del "user_blacklist_#{currentUserId}"
+
           res.send new APIResult 200
       .catch next
 
@@ -562,104 +593,124 @@ router.get '/blacklist', (req, res, next) ->
   currentUserId = Session.getCurrentUserId req
   timestamp = Date.now()
 
-  Blacklist.findAll
-    where:
-      userId: currentUserId
-      friendId:
-        $ne: 0
-      status: true
-    attributes: []
-    include:
-      model: User
-      attributes: [
-        'id'
-        'nickname'
-        'portraitUri'
-        'updatedAt' # 为节约服务端资源，客户端自己按照 updatedAt 排序
-      ]
-  .then (dbBlacklist) ->
-    # 调用融云服务器接口，获取服务端数据，并和本地做同步
-    rongCloud.user.blacklist.query Utility.encodeId(currentUserId), (err, resultText) ->
-      if err
-        # 如果失败直接忽略
-        Utility.logError 'Error: request server blacklist failed: %s', err
-      else
-        result = JSON.parse(resultText)
+  Cache.get "user_blacklist_#{currentUserId}"
+  .then (blacklist) ->
+    if blacklist
+      res.send new APIResult 200, blacklist
+    else
+      Blacklist.findAll
+        where:
+          userId: currentUserId
+          friendId:
+            $ne: 0
+          status: true
+        attributes: []
+        include:
+          model: User
+          attributes: [
+            'id'
+            'nickname'
+            'portraitUri'
+            'updatedAt' # 为节约服务端资源，客户端自己按照 updatedAt 排序
+          ]
+      .then (dbBlacklist) ->
+        # 调用融云服务器接口，获取服务端数据，并和本地做同步
+        rongCloud.user.blacklist.query Utility.encodeId(currentUserId), (err, resultText) ->
+          if err
+            # 如果失败直接忽略
+            Utility.logError 'Error: request server blacklist failed: %s', err
+          else
+            result = JSON.parse(resultText)
 
-        if result.code is 200
-          hasDirtyData = false
-          serverBlacklistUserIds = result.users
-          dbBlacklistUserIds = dbBlacklist.map (blacklist) ->
-            if blacklist.user
-              blacklist.user.id
-            else
-              hasDirtyData = true
-              null
+            if result.code is 200
+              hasDirtyData = false
+              serverBlacklistUserIds = result.users
+              dbBlacklistUserIds = dbBlacklist.map (blacklist) ->
+                if blacklist.user
+                  blacklist.user.id
+                else
+                  hasDirtyData = true
+                  null
 
-          # 如果有脏数据，输出到 Log 中
-          if hasDirtyData
-            Utility.log 'Dirty blacklist data %j', dbBlacklist
+              # 如果有脏数据，输出到 Log 中
+              if hasDirtyData
+                Utility.log 'Dirty blacklist data %j', dbBlacklist
 
-          # 检查和修复数据库中黑名单数据的缺失
-          serverBlacklistUserIds.forEach (encodedUserId) ->
-            userId = Utility.decodeIds encodedUserId
-            if dbBlacklistUserIds.indexOf(userId) is -1
-              # 数据库中缺失，添加上这个数据
-              Blacklist.create
-                userId: currentUserId
-                friendId: userId
-                status: true
-                timestamp: timestamp
-              .then ->
-                # 不需要处理成功和失败回调
-                Utility.log 'Sync: fix user blacklist, add %s -> %s from db.', currentUserId, userId
+              # 检查和修复数据库中黑名单数据的缺失
+              serverBlacklistUserIds.forEach (encodedUserId) ->
+                userId = Utility.decodeIds encodedUserId
+                if dbBlacklistUserIds.indexOf(userId) is -1
+                  # 数据库中缺失，添加上这个数据
+                  Blacklist.create
+                    userId: currentUserId
+                    friendId: userId
+                    status: true
+                    timestamp: timestamp
+                  .then ->
+                    # 不需要处理成功和失败回调
+                    Utility.log 'Sync: fix user blacklist, add %s -> %s from db.', currentUserId, userId
 
-                # 更新版本号（时间戳）
-                DataVersion.updateBlacklistVersion currentUserId, timestamp
-              .catch ->
-                # 可能会有云端的脏数据，导致 userId 不存在，直接忽略了
+                    # 更新版本号（时间戳）
+                    DataVersion.updateBlacklistVersion currentUserId, timestamp
+                  .catch ->
+                    # 可能会有云端的脏数据，导致 userId 不存在，直接忽略了
 
-          # 检查和修复数据库中黑名单脏数据（多余）
-          dbBlacklistUserIds.forEach (userId) ->
-            if userId and serverBlacklistUserIds.indexOf(Utility.encodeId(userId)) is -1
-              # 数据库中的脏数据，删除掉
-              Blacklist.update
-                status: false
-                timestamp: timestamp
-              ,
-                where:
-                  userId: currentUserId
-                  friendId: userId
-              .then ->
-                Utility.log 'Sync: fix user blacklist, remove %s -> %s from db.', currentUserId, userId
+              # 检查和修复数据库中黑名单脏数据（多余）
+              dbBlacklistUserIds.forEach (userId) ->
+                if userId and serverBlacklistUserIds.indexOf(Utility.encodeId(userId)) is -1
+                  # 数据库中的脏数据，删除掉
+                  Blacklist.update
+                    status: false
+                    timestamp: timestamp
+                  ,
+                    where:
+                      userId: currentUserId
+                      friendId: userId
+                  .then ->
+                    Utility.log 'Sync: fix user blacklist, remove %s -> %s from db.', currentUserId, userId
 
-                # 更新版本号（时间戳）
-                DataVersion.updateBlacklistVersion currentUserId, timestamp
+                    # 更新版本号（时间戳）
+                    DataVersion.updateBlacklistVersion currentUserId, timestamp
 
-    res.send new APIResult 200, Utility.encodeResults dbBlacklist, [['user', 'id']]
+        results = Utility.encodeResults dbBlacklist, [['user', 'id']]
+
+        Cache.set "user_blacklist_#{currentUserId}", results
+
+        res.send new APIResult 200, results
   .catch next
 
 # 获取当前用户所属群组列表
 router.get '/groups', (req, res, next) ->
-  GroupMember.findAll
-    where:
-      memberId: Session.getCurrentUserId req
-    attributes: [
-      'role'
-    ]
-    include: [
-      model: Group
-      attributes: [
-        'id'
-        'name'
-        'portraitUri'
-        'creatorId'
-        'memberCount'
-        'maxMemberCount'
-      ]
-    ]
+  currentUserId = Session.getCurrentUserId req
+
+  Cache.get "user_groups_#{currentUserId}"
   .then (groups) ->
-    res.send new APIResult 200, Utility.encodeResults groups, [['group', 'id'], ['group', 'creatorId']]
+    if groups
+      res.send new APIResult 200, groups
+    else
+      GroupMember.findAll
+        where:
+          memberId: currentUserId
+        attributes: [
+          'role'
+        ]
+        include: [
+          model: Group
+          attributes: [
+            'id'
+            'name'
+            'portraitUri'
+            'creatorId'
+            'memberCount'
+            'maxMemberCount'
+          ]
+        ]
+      .then (groups) ->
+        results = Utility.encodeResults groups, [['group', 'id'], ['group', 'creatorId']]
+
+        Cache.set "user_groups_#{currentUserId}", results
+
+        res.send new APIResult 200, results
   .catch next
 
 # 同步用户的好友、黑名单、群组、群组成员数据
@@ -700,6 +751,14 @@ router.get '/sync/:version', (req, res, next) ->
             'status'
             'timestamp'
           ]
+          include: [
+            model: User
+            attributes: [
+              'id'
+              'nickname'
+              'portraitUri'
+            ]
+          ]
 
       # 获取变化的好友信息
       if dataVersion.friendshipVersion > version
@@ -714,6 +773,14 @@ router.get '/sync/:version', (req, res, next) ->
             'status'
             'timestamp'
           ]
+          include: [
+            model: User
+            attributes: [
+              'id'
+              'nickname'
+              'portraitUri'
+            ]
+          ]
 
       # 获取变化的当前用户加入的群组信息
       if dataVersion.groupVersion > version
@@ -723,6 +790,7 @@ router.get '/sync/:version', (req, res, next) ->
             timestamp:
               $gt: version
           attributes: [
+            'groupId'
             'displayName'
             'role'
             'isDeleted'
@@ -737,11 +805,18 @@ router.get '/sync/:version', (req, res, next) ->
             ]
           ]
 
+      if groups
+        groupIds = groups.map (group) ->
+          return group.group.id
+      else
+        groupIds = []
+
       # 获取变化的当前用户加入的群组成员信息
       if dataVersion.groupVersion > version
         groupMembers = yield GroupMember.findAll
           where:
-            memberId: currentUserId
+            groupId:
+              $in: groupIds
             timestamp:
               $gt: version
           attributes: [
@@ -755,6 +830,7 @@ router.get '/sync/:version', (req, res, next) ->
           include: [
             model: User
             attributes: [
+              'id'
               'nickname'
               'portraitUri'
             ]
@@ -804,17 +880,26 @@ router.get '/:id', (req, res, next) ->
 
   userId = Utility.decodeIds userId
 
-  User.findById userId,
-    attributes: [
-      'id'
-      'nickname'
-      'portraitUri'
-    ]
+  Cache.get "user_#{userId}"
   .then (user) ->
-    if not user
-      return res.status(404).send 'Unknown user.'
+    if user
+      res.send new APIResult 200, user
+    else
+      User.findById userId,
+        attributes: [
+          'id'
+          'nickname'
+          'portraitUri'
+        ]
+      .then (user) ->
+        if not user
+          return res.status(404).send 'Unknown user.'
 
-    res.send new APIResult 200, Utility.encodeResults user
+        results = Utility.encodeResults user
+
+        Cache.set "user_#{userId}", results
+
+        res.send new APIResult 200, results
   .catch next
 
 # 根据手机号查找用户信息

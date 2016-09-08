@@ -83,7 +83,7 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/user/add_to_blacklist", _global.userCookie3,
         friendId: _global.userId1
       , 200
-      , null
+      , code: 200
       , ->
         _global.testPOSTAPI "/friendship/invite", _global.userCookie1,
           friendId: _global.userId3
@@ -125,7 +125,7 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/friendship/ignore", _global.userCookie2,
         friendId: _global.userId1
       , 200
-      , null
+      , code: 200
       , done
 
     it '不是好友', (done) ->
@@ -150,7 +150,7 @@ describe '好友接口测试', ->
           friendId: _global.userId2
           message: 'I am user1'
         , 200
-        , null
+        , code: 200
         , done
       , 1001 # 延迟一秒多再邀请
 
@@ -158,7 +158,7 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/friendship/agree", _global.userCookie2,
         friendId: _global.userId1
       , 200
-      , null
+      , code: 200
       , done
 
     it '不是好友', (done) ->
@@ -236,7 +236,7 @@ describe '好友接口测试', ->
         friendId: _global.userId1
         displayName: ''
       , 200
-      , null
+      , code: 200
       , done
 
     it '好友昵称长度高于上限', (done) ->
@@ -257,7 +257,7 @@ describe '好友接口测试', ->
         result:
           displayName: 'STRING'
           user:
-            id: 'STRING'
+            id: _global.userId1
             nickname: 'STRING'
             portraitUri: 'STRING'
             # username: 'STRING'
@@ -282,10 +282,17 @@ describe '好友接口测试', ->
         if body.result.length > 0
           expect(body.result[0].displayName).toBeDefined()
           expect(body.result[0].status).toBeDefined()
-          expect(body.result[0].user.id).toBeDefined()
+          expect(body.result[0].user.id).toEqual(_global.userId1)
           expect(body.result[0].user.nickname).toBeDefined()
+          expect(body.result[0].user.region).toBeDefined()
+          expect(body.result[0].user.phone).toBeDefined()
           expect(body.result[0].user.portraitUri).toBeDefined()
-        done()
+        _global.testGETAPI "/friendship/all", _global.userCookie2
+        , 200
+        , code: 200
+        , (body2) ->
+          expect(body).toEqual(body2)
+          done()
 
   describe '删除好友关系', ->
 
@@ -293,7 +300,7 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/friendship/delete", _global.userCookie2,
         friendId: _global.userId1
       , 200
-      , null
+      , code: 200
       , done
 
     it '不是好友', (done) ->
@@ -317,7 +324,7 @@ describe '好友接口测试', ->
         friendId: _global.userId2
         message: 'I am user3'
       , 200
-      , null
+      , code: 200
       , done
 
     it '邀请自己删除过的好友直接成功', (done) ->
@@ -325,7 +332,21 @@ describe '好友接口测试', ->
         friendId: _global.userId1
         message: 'I am user2'
       , 200
-      , null
+      , code: 200
+      , done
+
+    it '设置自己昵称清除好友缓存', (done) ->
+      this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
+        nickname: _global.xssString
+      , 200
+      , code: 200
+      , done
+
+    it '设置自己头像清除好友缓存', (done) ->
+      this.testPOSTAPI "/user/set_portrait_uri", _global.userCookie1,
+        portraitUri: 'http://a.com/new_address'
+      , 200
+      , code: 200
       , done
 
     it '邀请正在邀请自己的好友直接成功', (done) ->
@@ -333,7 +354,7 @@ describe '好友接口测试', ->
         friendId: _global.userId3
         message: 'I am user2'
       , 200
-      , null
+      , code: 200
       , done
 
     it '邀请已经是好友关系的好友', (done) ->
@@ -348,29 +369,29 @@ describe '好友接口测试', ->
       this.testPOSTAPI "/friendship/delete", _global.userCookie1,
         friendId: _global.userId2
       , 200
-      , null
+      , code: 200
       , ->
         _global.testPOSTAPI "/friendship/delete", _global.userCookie2,
           friendId: _global.userId1
         , 200
-        , null
+        , code: 200
         , ->
           _global.testPOSTAPI "/friendship/invite", _global.userCookie1,
             friendId: _global.userId2
             message: 'I am user1'
           , 200
-          , null
+          , code: 200
           , done
 
     it '邀请删除自己的的好友', (done) ->
       this.testPOSTAPI "/friendship/delete", _global.userCookie2,
         friendId: _global.userId3
       , 200
-      , null
+      , code: 200
       , ->
         _global.testPOSTAPI "/friendship/invite", _global.userCookie3,
           friendId: _global.userId2
           message: 'I am user1'
         , 200
-        , null
+        , code: 200
         , done

@@ -6,6 +6,7 @@ semver    = require 'semver'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
+Cache     = require '../util/cache'
 Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
@@ -25,24 +26,34 @@ router.get '/latest_update', (req, res, next) ->
   clientVersion = req.query.version
 
   try
-    squirrelConfig = jsonfile.readFileSync path.join __dirname, '../squirrel.json'
+    Cache.get 'latest_update'
+    .then (squirrelConfig)->
+      if not squirrelConfig
+        squirrelConfig = jsonfile.readFileSync path.join __dirname, '../squirrel.json'
 
-    if (semver.valid(clientVersion) is null) or (semver.valid(squirrelConfig.version) is null)
-      return res.status(400).send 'Invalid version.'
+        Cache.set 'latest_update', squirrelConfig
 
-    if semver.gte(clientVersion, squirrelConfig.version)
-      res.status(204).end()
-    else
-      res.send squirrelConfig
+      if (semver.valid(clientVersion) is null) or (semver.valid(squirrelConfig.version) is null)
+        return res.status(400).send 'Invalid version.'
+
+      if semver.gte(clientVersion, squirrelConfig.version)
+        res.status(204).end()
+      else
+        res.send squirrelConfig
   catch err
     next err
 
 # 获取最新移动客户端版本信息
 router.get '/client_version', (req, res, next) ->
   try
-    clientVersionInfo = jsonfile.readFileSync path.join __dirname, '../client_version.json'
+    Cache.get 'client_version'
+    .then (clientVersionInfo)->
+      if not clientVersionInfo
+        clientVersionInfo = jsonfile.readFileSync path.join __dirname, '../client_version.json'
 
-    res.send clientVersionInfo
+        Cache.set 'client_version', clientVersionInfo
+
+      res.send clientVersionInfo
   catch err
     next err
 

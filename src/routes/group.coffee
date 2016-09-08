@@ -4,6 +4,7 @@ _         = require 'underscore'
 rongCloud = require 'rongcloud-sdk'
 
 Config    = require '../conf'
+Cache     = require '../util/cache'
 Session   = require '../util/session'
 Utility   = require('../util/util').Utility
 APIResult = require('../util/util').APIResult
@@ -143,6 +144,9 @@ router.post '/create', (req, res, next) ->
               where:
                 groupId: group.id
 
+        memberIds.forEach (memberId) ->
+          Cache.del "user_groups_#{memberId}"
+
         # 无论调用融云接口成功与否，都返回创建群组成功
         res.send new APIResult 200, Utility.encodeResults id: group.id
   .catch next
@@ -217,6 +221,12 @@ router.post '/add', (req, res, next) ->
               where:
                 groupId: group.id
 
+        memberIds.forEach (memberId) ->
+          Cache.del "user_groups_#{memberId}"
+
+        Cache.del "group_#{groupId}"
+        Cache.del "group_members_#{groupId}"
+
         res.send new APIResult 200
   .catch next
 
@@ -285,6 +295,10 @@ router.post '/join', (req, res, next) ->
             ,
               where:
                 groupId: group.id
+
+        Cache.del "user_groups_#{currentUserId}"
+        Cache.del "group_#{groupId}"
+        Cache.del "group_members_#{groupId}"
 
         res.send new APIResult 200
   .catch next
@@ -395,6 +409,12 @@ router.post '/kick', (req, res, next) ->
                 # 更新版本号（时间戳）
                 DataVersion.updateGroupMemberVersion groupId, timestamp
                 .then ->
+                  memberIds.forEach (memberId) ->
+                    Cache.del "user_groups_#{memberId}"
+
+                  Cache.del "group_#{groupId}"
+                  Cache.del "group_members_#{groupId}"
+
                   res.send new APIResult 200
   .catch next
 
@@ -558,6 +578,11 @@ router.post '/quit', (req, res, next) ->
               # 更新版本号（时间戳）
               DataVersion.updateGroupMemberVersion groupId, timestamp
               .then ->
+                Cache.del "user_groups_#{currentUserId}"
+
+                Cache.del "group_#{groupId}"
+                Cache.del "group_members_#{groupId}"
+
                 res.send new APIResult 200, null, resultMessage
   .catch next
 
@@ -630,6 +655,19 @@ router.post '/dismiss', (req, res, next) ->
           # 更新版本号（时间戳）
           DataVersion.updateGroupMemberVersion groupId, timestamp
           .then ->
+            GroupMember.unscoped().findAll
+              where:
+                groupId: groupId
+              attributes: [
+                'memberId'
+              ]
+            .then (members) ->
+              members.forEach (member) ->
+                Cache.del "user_groups_#{member.memberId}"
+
+            Cache.del "group_#{groupId}"
+            Cache.del "group_members_#{groupId}"
+
             res.send new APIResult 200
         .catch (err) ->
           if err instanceof HTTPError
@@ -713,6 +751,9 @@ router.post '/transfer', (req, res, next) ->
               newCreatorName: nickname
               timestamp: timestamp
 
+        Cache.del "group_#{groupId}"
+        Cache.del "group_members_#{groupId}"
+
         res.send new APIResult 200
   .catch next
 
@@ -771,6 +812,18 @@ router.post '/rename', (req, res, next) ->
           targetGroupName: name
           timestamp: timestamp
 
+      GroupMember.findAll
+        where:
+          groupId: groupId
+        attributes: [
+          'memberId'
+        ]
+      .then (members) ->
+        members.forEach (member) ->
+          Cache.del "user_groups_#{member.memberId}"
+
+      Cache.del "group_#{groupId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -801,6 +854,18 @@ router.post '/set_bulletin', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateGroupVersion groupId, timestamp
     .then ->
+      GroupMember.findAll
+        where:
+          groupId: groupId
+        attributes: [
+          'memberId'
+        ]
+      .then (members) ->
+        members.forEach (member) ->
+          Cache.del "user_groups_#{member.memberId}"
+
+      Cache.del "group_#{groupId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -833,6 +898,18 @@ router.post '/set_portrait_uri', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateGroupVersion groupId, timestamp
     .then ->
+      GroupMember.findAll
+        where:
+          groupId: groupId
+        attributes: [
+          'memberId'
+        ]
+      .then (members) ->
+        members.forEach (member) ->
+          Cache.del "user_groups_#{member.memberId}"
+
+      Cache.del "group_#{groupId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -860,6 +937,8 @@ router.post '/set_display_name', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateGroupMemberVersion currentUserId, timestamp
     .then ->
+      Cache.del "group_members_#{groupId}"
+
       res.send new APIResult 200
   .catch next
 
@@ -871,33 +950,42 @@ router.get '/:id', (req, res, next) ->
 
   currentUserId = Session.getCurrentUserId req
 
-  Group.findById groupId,
-    attributes: [
-      'id'
-      'name'
-      'portraitUri'
-      'memberCount'
-      'maxMemberCount'
-      'creatorId'
-      'bulletin'
-      'deletedAt'
-    ]
-    paranoid: false
+  Cache.get "group_#{groupId}"
   .then (group) ->
-    if not group
-      return res.status(404).send 'Unknown group.'
+    if group
+      res.send new APIResult 200, group
+    else
+      Group.findById groupId,
+        attributes: [
+          'id'
+          'name'
+          'portraitUri'
+          'memberCount'
+          'maxMemberCount'
+          'creatorId'
+          'bulletin'
+          'deletedAt'
+        ]
+        paranoid: false
+      .then (group) ->
+        if not group
+          return res.status(404).send 'Unknown group.'
 
-    # ADD: 不做判断了，因为离开群组的用户有些情况下也需要群组信息
-    # 群组成员才可以查看群组信息
-    # GroupMember.count
-    #   where:
-    #     groupId: groupId
-    #     memberId: currentUserId
-    # .then (count) ->
-    #   if count is 0
-    #     return res.status(403).send 'Only group member can get group info.'
+        # ADD: 不做判断了，因为离开群组的用户或者不在群组的用户有些情况下也需要群组信息
+        #
+        # 群组成员才可以查看群组信息
+        # GroupMember.count
+        #   where:
+        #     groupId: groupId
+        #     memberId: currentUserId
+        # .then (count) ->
+        #   if count is 0
+        #     return res.status(403).send 'Only group member can get group info.'
+        results = Utility.encodeResults group, ['id', 'creatorId']
 
-    res.send new APIResult 200, Utility.encodeResults group, ['id', 'creatorId']
+        Cache.set "group_#{groupId}", results
+
+        res.send new APIResult 200, results
   .catch next
 
 # 获取群组成员
@@ -908,35 +996,52 @@ router.get '/:id/members', (req, res, next) ->
 
   currentUserId = Session.getCurrentUserId req
 
-  GroupMember.findAll
-    where:
-      groupId: groupId
-    attributes: [
-      'displayName'
-      'role'
-      'createdAt'
-      'updatedAt'
-    ]
-    include:
-      model: User
-      attributes: [
-        'id'
-        'nickname'
-        'portraitUri'
-      ]
+  Cache.get "group_members_#{groupId}"
   .then (groupMembers) ->
-    # 群组不存在
-    if groupMembers.length is 0
-      return res.status(404).send 'Unknown group.'
+    if groupMembers
+      encodedCurrentUserId = Utility.encodeId currentUserId
+      # 当前用户是否在群组中的标识
+      isInGroup = groupMembers.some (groupMember) ->
+        groupMember.user.id is encodedCurrentUserId
 
-    # 当前用户是否在群组中的标识
-    isInGroup = groupMembers.some (groupMember) ->
-      groupMember.user.id is currentUserId
+      if not isInGroup
+        return res.status(403).send 'Only group member can get group member info.'
 
-    if not isInGroup
-      return res.status(403).send 'Only group member can get group member info.'
+      res.send new APIResult 200, groupMembers
+    else
+      GroupMember.findAll
+        where:
+          groupId: groupId
+        attributes: [
+          'displayName'
+          'role'
+          'createdAt'
+          'updatedAt'
+        ]
+        include:
+          model: User
+          attributes: [
+            'id'
+            'nickname'
+            'portraitUri'
+          ]
+      .then (groupMembers) ->
+        # 群组不存在
+        if groupMembers.length is 0
+          return res.status(404).send 'Unknown group.'
 
-    res.send new APIResult 200, Utility.encodeResults groupMembers, [['user', 'id']]
+        # 当前用户是否在群组中的标识
+        isInGroup = groupMembers.some (groupMember) ->
+          groupMember.user.id is currentUserId
+
+        if not isInGroup
+          return res.status(403).send 'Only group member can get group member info.'
+
+        results = Utility.encodeResults groupMembers, [['user', 'id']]
+
+        Cache.set "group_members_#{groupId}", results
+
+        res.send new APIResult 200, results
   .catch next
 
 module.exports = router

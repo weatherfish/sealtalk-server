@@ -1,5 +1,6 @@
 describe '其他接口测试', ->
   _global = null
+  _cachedBody = null
 
   beforeAll (done) ->
     _global = this
@@ -45,7 +46,7 @@ describe '其他接口测试', ->
 
   describe '获取最新移动客户端版本信息', ->
 
-    it '成功', (done) ->
+    it '成功 - 未命中缓存', (done) ->
       this.testGETAPI '/misc/client_version'
       , 200
       ,
@@ -56,7 +57,24 @@ describe '其他接口测试', ->
         Android:
           version: 'STRING'
           url: 'STRING'
-      , done
+      , (body) ->
+        _cachedBody = body
+        done()
+
+    it '成功 - 命中缓存', (done) ->
+      this.testGETAPI '/misc/client_version'
+      , 200
+      ,
+        iOS:
+          version: 'STRING'
+          build: 'STRING'
+          url: 'STRING'
+        Android:
+          version: 'STRING'
+          url: 'STRING'
+      , (body) ->
+        expect(body).toEqual(_cachedBody)
+        done()
 
   describe '获取 Demo 演示所需要的群组和聊天室名单', ->
 
@@ -64,7 +82,12 @@ describe '其他接口测试', ->
       this.testGETAPI '/misc/demo_square'
       , 200
       , code: 200
-      , done
+      , (body) ->
+        expect(body.result.length).toEqual(7)
+        if body.result.length > 0
+          expect(body.result[2].type).toEqual('group')
+          expect(body.result[2].name).toEqual('Unknown')
+        done()
 
   describe '发送消息接口', ->
 

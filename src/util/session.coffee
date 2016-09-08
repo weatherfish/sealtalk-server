@@ -2,13 +2,10 @@ process = require 'process'
 LRU     = require "lru-cache"
 co      = require 'co'
 Config  = require '../conf'
+Cache   = require './cache'
 Utility = require('./util').Utility
 
 class Session
-  @cache = LRU
-    max: 5000
-    maxAge: 1000 * 60 * 60
-
   @getCurrentUserId: (req) ->
     # 开发环境可以通过 URL 参数 ?userId=123 或者 encodeUserId=X8dmd7d 设置当前登录的 userId
     # if process.env.NODE_ENV is 'development'
@@ -24,9 +21,7 @@ class Session
     parseInt Utility.decryptText cookie, Config.AUTH_COOKIE_KEY
 
   @getCurrentUserNickname: (userId, UserModel) ->
-    cachedNickname = @cache.get 'nickname_' + userId
-
-    cache = @cache
+    cachedNickname = Cache.get 'nickname_' + userId
 
     new Promise (resolve, reject) ->
       if cachedNickname
@@ -35,7 +30,7 @@ class Session
       UserModel.getNickname userId
       .then (nickname) ->
         if nickname
-          cache.set 'nickname_' + userId, nickname
+          Cache.set 'nickname_' + userId, nickname
 
         resolve nickname
       .catch (err) ->
@@ -45,7 +40,7 @@ class Session
     if not Number.isInteger(userId) or Utility.isEmpty nickname
       throw new Error 'Invalid userId or nickname.'
 
-    @cache.set 'nickname_' + userId, nickname
+    Cache.set 'nickname_' + userId, nickname
 
   @setAuthCookie: (res, userId) ->
     value = Utility.encryptText userId, Config.AUTH_COOKIE_KEY
@@ -53,6 +48,7 @@ class Session
     res.cookie Config.AUTH_COOKIE_NAME, value,
       #secure: true
       httpOnly: true
+      domain: Config.AUTH_COOKIE_DOMAIN
       maxAge: Config.AUTH_COOKIE_MAX_AGE
       expires: new Date(Date.now() + Config.AUTH_COOKIE_MAX_AGE)
 

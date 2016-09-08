@@ -62,27 +62,14 @@ class Utility
 
   # 转换结果集中的数字 Id 为加密 Id
   @encodeResults: (results, keys) ->
-    # 默认转换 id
-    keys = 'id' if not keys
-    # 把字符串参数转换为数组
-    keys = [keys] if typeof keys is 'string'
-
-    isSubArrayKey = keys.length > 0 and Array.isArray keys[0]
-
     replaceKeys = (obj) ->
       return null if obj is null
-
-      # 将 Sequelize Model 转换为 JSON
-      obj = obj.dataValues if obj.dataValues
 
       if isSubArrayKey
         keys.forEach (key) ->
           subObj = obj[key[0]]
 
           if subObj
-            # 将 Sequelize Model 转换为 JSON
-            subObj = subObj.dataValues if subObj.dataValues
-
             subObj[key[1]] = Utility.numberToString subObj[key[1]] if subObj[key[1]]
       else
         keys.forEach (key) ->
@@ -90,8 +77,20 @@ class Utility
 
       return obj
 
+    return null if results is null
+
+    results = results.toJSON() if results.toJSON
+
+    # 默认转换 id
+    keys = 'id' if not keys
+    # 把字符串参数转换为数组
+    keys = [keys] if typeof keys is 'string'
+
+    isSubArrayKey = keys.length > 0 and Array.isArray keys[0]
+
     if Array.isArray results
       retVal = results.map (item) ->
+        item = item.toJSON() if item.toJSON
         replaceKeys item
     else
       retVal = replaceKeys results

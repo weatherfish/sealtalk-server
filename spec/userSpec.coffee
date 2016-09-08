@@ -1,5 +1,7 @@
+# TODO: Test Session.getCurrentUserNickname without cache.
 describe '用户接口测试', ->
   _global = null
+  _cachedBody = null
   verificationCodeToken = null
 
   beforeAll ->
@@ -448,7 +450,7 @@ describe '用户接口测试', ->
         _global.userId2 = userId
         done()
 
-    it '成功', (done) ->
+    it '成功 - 未命中缓存', (done) ->
       this.testGETAPI "/user/#{_global.userId2}", _global.userCookie1
       , 200
       ,
@@ -457,7 +459,22 @@ describe '用户接口测试', ->
           id: 'STRING'
           nickname: 'STRING'
           portraitUri: 'STRING'
-      , done
+      , (body) ->
+        _cachedBody = body
+        done()
+
+    it '成功 - 命中缓存', (done) ->
+      this.testGETAPI "/user/#{_global.userId2}", _global.userCookie1
+      , 200
+      ,
+        code: 200
+        result:
+          id: 'STRING'
+          nickname: 'STRING'
+          portraitUri: 'STRING'
+      , (body) ->
+        expect(body).toEqual(_cachedBody)
+        done()
 
     it '用户 Id 不存在', (done) ->
       this.testGETAPI "/user/5Vg2XCh9f", _global.userCookie1
@@ -474,10 +491,10 @@ describe '用户接口测试', ->
       , (body) ->
         expect(body.result.length).toEqual(2)
         if body.result.length > 0
-          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].id).toEqual(_global.userId1)
           expect(body.result[0].nickname).toBeDefined()
           expect(body.result[0].portraitUri).toBeDefined()
-          expect(body.result[1].id).toBeDefined()
+          expect(body.result[1].id).toEqual(_global.userId2)
           expect(body.result[1].nickname).toBeDefined()
           expect(body.result[1].portraitUri).toBeDefined()
         done()
@@ -489,7 +506,7 @@ describe '用户接口测试', ->
       , (body) ->
         expect(body.result.length).toEqual(1)
         if body.result.length > 0
-          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].id).toEqual(_global.userId1)
           expect(body.result[0].nickname).toBeDefined()
           expect(body.result[0].portraitUri).toBeDefined()
         done()
@@ -501,7 +518,7 @@ describe '用户接口测试', ->
       , (body) ->
         expect(body.result.length).toEqual(1)
         if body.result.length > 0
-          expect(body.result[0].id).toBeDefined()
+          expect(body.result[0].id).toEqual(_global.userId1)
           expect(body.result[0].nickname).toBeDefined()
           expect(body.result[0].portraitUri).toBeDefined()
         done()
@@ -533,12 +550,21 @@ describe '用户接口测试', ->
 
   describe '获取当前用户所属群组', ->
 
-    it '成功', (done) ->
+    it '成功 - 未命中缓存', (done) ->
       this.testGETAPI "/user/groups", _global.userCookie1
       , 200
-      , null
+      , code: 200
       , (body) ->
         expect(body.result.length).toEqual(0)
+        _cachedBody = body
+        done()
+
+    it '成功 - 命中缓存', (done) ->
+      this.testGETAPI "/user/groups", _global.userCookie1
+      , 200
+      , code: 200
+      , (body) ->
+        expect(body).toEqual(_cachedBody)
         done()
 
   describe '通过 Token 修改密码', ->
@@ -686,7 +712,7 @@ describe '用户接口测试', ->
       this.testPOSTAPI "/user/set_nickname", _global.userCookie1,
         nickname: '<'.repeat 32
       , 200
-      , null
+      , code: 200
       , done
 
     it '昵称长度大于上限', (done) ->
@@ -772,10 +798,16 @@ describe '用户接口测试', ->
       , (body) ->
         expect(body.result.length).toEqual(1)
         if body.result.length > 0
-          expect(body.result[0].user.id).toBeDefined()
+          expect(body.result[0].user.id).toEqual(_global.userId2)
           expect(body.result[0].user.nickname).toBeDefined()
           expect(body.result[0].user.portraitUri).toBeDefined()
-        done()
+        _global.testGETAPI "/user/blacklist", _global.userCookie1
+        , 200
+        , code: 200
+        , (body2) ->
+          # 利用缓存
+          expect(body).toEqual(body2)
+          done()
 
   describe '从黑名单列表中移除', ->
 
@@ -817,7 +849,7 @@ describe '用户接口测试', ->
       _global.testPOSTAPI "/user/logout", _global.userCookie1
       , {}
       , 200
-      , null
+      , code: 200
       , (body, cookie) ->
         _global.userCookie1 = cookie
         _global.testGETAPI "/user/#{_global.userId1}", _global.userCookie1

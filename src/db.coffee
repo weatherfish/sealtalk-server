@@ -48,9 +48,7 @@ userClassMethods =
       where:
         id: userId
     .then (count) ->
-      Promise.resolve count is 1
-    .catch (err) ->
-      Promise.reject err
+      count is 1
 
   checkPhoneAvailable: (region, phone) ->
     User.count
@@ -58,17 +56,13 @@ userClassMethods =
         region: region
         phone: phone
     .then (count) ->
-      Promise.resolve count is 0
-    .catch (err) ->
-      Promise.reject err
+      count is 0
   # checkUsernameAvailable: (username) ->
   #   User.count
   #     where:
   #       username: username
   #   .then (count) ->
-  #     Promise.resolve count is 0
-  #   .catch (err) ->
-  #     Promise.reject err
+  #     count is 0
 
 friendshipClassMethods =
   getInfo: (userId, friendId) ->
