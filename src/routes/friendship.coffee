@@ -159,11 +159,13 @@ router.post '/invite', (req, res, next) ->
                     timestamp
 
                 Cache.del "friendship_all_#{currentUserId}"
+                Cache.del "friendship_all_#{friendId}"
 
                 Utility.log 'Invite result: %s %s', action, resultMessage
                 res.send new APIResult 200, action: action, resultMessage
             else
               Cache.del "friendship_all_#{currentUserId}"
+              Cache.del "friendship_all_#{friendId}"
 
               Utility.log 'Invite result: %s %s', action, resultMessage
               res.send new APIResult 200, action: action, resultMessage
@@ -184,6 +186,7 @@ router.post '/invite', (req, res, next) ->
         ]
         .then ->
           Cache.del "friendship_all_#{currentUserId}"
+          Cache.del "friendship_all_#{friendId}"
 
           Utility.log 'Invite result: %s %s', action, resultMessage
           res.send new APIResult 200, action: action, resultMessage
@@ -227,6 +230,7 @@ router.post '/invite', (req, res, next) ->
                   timestamp
 
               Cache.del "friendship_all_#{currentUserId}"
+              Cache.del "friendship_all_#{friendId}"
 
               Utility.log 'Invite result: %s %s', 'Sent', 'Request sent.'
               res.send new APIResult 200, action: 'Sent', 'Request sent.'
@@ -282,6 +286,7 @@ router.post '/agree', (req, res, next) ->
               timestamp
 
           Cache.del "friendship_all_#{currentUserId}"
+          Cache.del "friendship_all_#{friendId}"
 
           res.send new APIResult 200
   .catch next
@@ -309,6 +314,7 @@ router.post '/ignore', (req, res, next) ->
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
       Cache.del "friendship_all_#{currentUserId}"
+      Cache.del "friendship_all_#{friendId}"
 
       res.send new APIResult 200
   .catch next
@@ -339,6 +345,7 @@ router.post '/delete', (req, res, next) ->
     .then ->
       Cache.del "friendship_profile_displayName_#{currentUserId}_#{friendId}"
       Cache.del "friendship_all_#{currentUserId}"
+      Cache.del "friendship_all_#{friendId}"
 
       res.send new APIResult 200
   .catch next
