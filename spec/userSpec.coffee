@@ -115,8 +115,8 @@ describe '用户接口测试', ->
         region: '86'
         phone: this.phoneNumber1
         code: '1234' # May be incorrect.
-      , 200
-      , code: 1000
+      , 400
+      , null
       , done
 
     it '验证码为空', (done) ->

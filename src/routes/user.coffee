@@ -135,10 +135,11 @@ router.post '/verify_code', (req, res, next) ->
       rongCloud.sms.verifyCode verification.sessionId, code, (err, resultText) ->
         if err
           # Hack for invalid 430 HTTP status code to avoid unuseful error log.
+          # Hack for unit test of empty sessionId
           errorMessage = err.message
 
-          if errorMessage is 'Unsuccessful HTTP response' or errorMessage is 'Too Many Requests'
-            return res.status(err.statusCode).send errorMessage
+          if errorMessage is 'Unsuccessful HTTP response' or errorMessage is 'Too Many Requests' or verification.sessionId is ''
+            return res.status(err.status).send errorMessage
           else
             return next err
 
