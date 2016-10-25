@@ -344,6 +344,7 @@ router.post '/delete', (req, res, next) ->
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
       Cache.del "friendship_profile_displayName_#{currentUserId}_#{friendId}"
+      Cache.del "friendship_profile_user_#{currentUserId}_#{friendId}"
       Cache.del "friendship_all_#{currentUserId}"
       Cache.del "friendship_all_#{friendId}"
 
@@ -376,7 +377,7 @@ router.post '/set_display_name', (req, res, next) ->
     # 更新版本号（时间戳）
     DataVersion.updateFriendshipVersion currentUserId, timestamp
     .then ->
-      Cache.del "friendship_profile_#{currentUserId}_#{friendId}"
+      Cache.del "friendship_profile_displayName_#{currentUserId}_#{friendId}"
 
       res.send new APIResult 200
   .catch next
@@ -427,7 +428,7 @@ router.get '/:friendId/profile', (req, res, next) ->
 
   Cache.get "friendship_profile_displayName_#{currentUserId}_#{friendId}"
   .then (displayName) ->
-    Cache.get "friendship_profile_user_#{friendId}"
+    Cache.get "friendship_profile_user_#{currentUserId}_#{friendId}"
     .then (profile) ->
       if displayName and profile
         results = {
@@ -463,7 +464,7 @@ router.get '/:friendId/profile', (req, res, next) ->
           results = Utility.encodeResults friend, [['user', 'id']]
 
           Cache.set "friendship_profile_displayName_#{currentUserId}_#{friendId}", results.displayName
-          Cache.set "friendship_profile_user_#{friendId}", results.user
+          Cache.set "friendship_profile_user_#{currentUserId}_#{friendId}", results.user
 
           res.send new APIResult 200, results
   .catch next
