@@ -21,20 +21,20 @@ class Session
     parseInt Utility.decryptText cookie, Config.AUTH_COOKIE_KEY
 
   @getCurrentUserNickname: (userId, UserModel) ->
-    cachedNickname = Cache.get 'nickname_' + userId
-
     new Promise (resolve, reject) ->
-      if cachedNickname
-        return resolve cachedNickname
+      Cache.get 'nickname_' + userId
+      .then (cachedNickname) ->
+        if cachedNickname
+          return resolve cachedNickname
 
-      UserModel.getNickname userId
-      .then (nickname) ->
-        if nickname
-          Cache.set 'nickname_' + userId, nickname
+        UserModel.getNickname userId
+        .then (nickname) ->
+          if nickname
+            Cache.set 'nickname_' + userId, nickname
 
-        resolve nickname
-      .catch (err) ->
-        reject err
+          resolve nickname
+        .catch (err) ->
+          reject err
 
   @setNicknameToCache: (userId, nickname) ->
     if not Number.isInteger(userId) or Utility.isEmpty nickname
