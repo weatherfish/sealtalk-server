@@ -95,7 +95,7 @@ router.post '/send_code', (req, res, next) ->
         sessionId: ''
       .then ->
         return res.send new APIResult 200
-    else
+    else if Config.RONGCLOUD_SMS_REGISTER_TEMPLATE_ID isnt ''
       # 需要在融云开发者后台申请短信验证码签名，然后选择短信模板 Id
       rongCloud.sms.sendCode region, phone, Config.RONGCLOUD_SMS_REGISTER_TEMPLATE_ID, (err, resultText) ->
         if err
@@ -128,8 +128,8 @@ router.post '/verify_code', (req, res, next) ->
     # 验证码过期时间为 2 分钟
     else if moment().subtract(2, 'm').isAfter verification.updatedAt
       res.send new APIResult 2000, null, 'Verification code expired.'
-    # 开发环境下支持万能验证码
-    else if req.app.get('env') is 'development' and code is '9999'
+    # 开发环境下，或者没有配置短信模板 Id，支持万能验证码
+    else if (req.app.get('env') is 'development' or Config.RONGCLOUD_SMS_REGISTER_TEMPLATE_ID is '')and code is '9999'
       res.send new APIResult 200, verification_token: verification.token
     else
       rongCloud.sms.verifyCode verification.sessionId, code, (err, resultText) ->
@@ -425,6 +425,17 @@ router.post '/set_nickname', (req, res, next) ->
       .then (friends) ->
         friends.forEach (friend) ->
           Cache.del "friendship_all_#{friend.friendId}"
+
+      GroupMember.findAll
+        where:
+          memberId: currentUserId
+          isDeleted: false
+        attributes: [
+          'groupId'
+        ]
+      .then (groupMembers) ->
+        groupMembers.forEach (groupMember) ->
+          Cache.del "group_members_#{groupMember.groupId}"
 
       res.send new APIResult 200
   .catch next
@@ -842,6 +853,11 @@ router.get '/sync/:version', (req, res, next) ->
       maxVersions.push(_.max(friends, (item) -> item.timestamp).timestamp) if friends
       maxVersions.push(_.max(groups, (item) -> item.group.timestamp).group.timestamp) if groups
       maxVersions.push(_.max(groupMembers, (item) -> item.timestamp).timestamp) if groupMembers
+
+      blacklist = [] if blacklist is null
+      friends = [] if friends is null
+      groups = [] if groups is null
+      group_members = [] if group_members is null
 
       Utility.log 'maxVersions: %j', maxVersions
 

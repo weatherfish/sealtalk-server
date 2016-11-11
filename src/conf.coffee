@@ -13,8 +13,6 @@ module.exports =
   RONGCLOUD_APP_SECRET: '<-- 此处填写融云颁发的 App Secret -->'
   # 融云短信服务提供的注册用户短信模板 Id
   RONGCLOUD_SMS_REGISTER_TEMPLATE_ID: '<-- 此处填写融云颁发的短信模板 Id -->'
-  # 融云短信服务提供的重置密码短信模板 Id
-  RONGCLOUD_SMS_RESET_PASSWORD_TEMPLATE_ID: '<-- 此处填写融云颁发的短信模板 Id -->'
   # 七牛颁发的 Access Key，请访问七牛开发者后台：https://portal.qiniu.com
   QINIU_ACCESS_KEY: '<-- 此处填写七牛颁发的 Access Key -->'
   # 七牛颁发的 Secret Key，请访问七牛开发者后台：https://portal.qiniu.com
